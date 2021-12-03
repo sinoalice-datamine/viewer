@@ -41,7 +41,7 @@ function viewClasses(db, isDebug) {
 
 	let unitSections = ""
 	for (const [k, v] of characters) {
-		unitSections += `<section><h2>${v.mst.name}</h2>`;
+		unitSections += `<section id="${v.mst.characterMstId}"><h2>${v.mst.name}</h2>`;
 		if (v.mst.displayStartTime) {
 			const date = new Date(v.mst.displayStartTime * 1000);
 			unitSections += `<p>Display start time: ${date.toISOString()}</p>`;
@@ -57,7 +57,7 @@ function viewClasses(db, isDebug) {
 			arcana5: [0, 0, 0, 0, 0, 0, 0],
 		};
 
-		unitSections += '<table><tr>';
+		unitSections += '<table><thead><tr>';
 		if (isDebug) {
 			unitSections += '<th>id</th>';
 			unitSections += '<th>releaseLevel</th>';
@@ -72,7 +72,7 @@ function viewClasses(db, isDebug) {
 			unitSections += '<th>type</th>';
 			unitSections += '<th>effect</th>';
 		}
-		unitSections += '</tr>';
+		unitSections += '</tr></thead><tbody>';
 		for (let i = 0; i < v.skills.length; i++) {
 			let skill = v.skills[i];
 			unitSections += '<tr>';
@@ -108,9 +108,9 @@ function viewClasses(db, isDebug) {
 				totalStats[skill.effectType - 1] += skill.effectValue;
 			}
 		}
-		unitSections += '</table>';
+		unitSections += '</tbody></table>';
 
-		unitSections += '<table><tr>';
+		unitSections += '<table><thead><tr>';
 		unitSections += '<th>unlock</th>';
 		unitSections += '<th>HP</th>';
 		unitSections += '<th>patk</th>';
@@ -118,7 +118,7 @@ function viewClasses(db, isDebug) {
 		unitSections += '<th>matk</th>';
 		unitSections += '<th>mdef</th>';
 		unitSections += '<th>cost</th>';
-		unitSections += '</tr>';
+		unitSections += '</tr></thead><tbody>';
 
 		for (let k in stats) {
 			let unlock = stats[k];
@@ -134,7 +134,7 @@ function viewClasses(db, isDebug) {
 			}
 			unitSections += '</tr>';
 		}
-		unitSections += '</table>';
+		unitSections += '</tbody></table>';
 
 		unitSections += '</section>';
 	}
@@ -254,7 +254,7 @@ function viewWeapons(version, db, isDebug, cardMstListName) {
 	});
 
 	let html = "<h1>Weapons</h1>";
-	html += '<table><tr>';
+	html += '<table class="fixedHeader"><thead><tr>';
 	if (isDebug) {
 		html += '<th>cardMstId</th>';
 	}
@@ -288,7 +288,7 @@ function viewWeapons(version, db, isDebug, cardMstListName) {
 		html += '<th>questSkillMstId</th>';
 		html += '<th>limitBreakSkillMstId</th>';
 	}
-	html += '</tr>';
+	html += '</tr></thead><tbody>';
 
 	const rarityMap = ["D", "C", "B", "A", "S", "SR", "L", "LL"];
 
@@ -408,7 +408,7 @@ function viewWeapons(version, db, isDebug, cardMstListName) {
 			html += '</tr>';
 		}
 	}
-	html += '</table>';
+	html += '</tbody></table>';
 
 	let content = document.getElementById("content");
 	content.innerHTML = html;

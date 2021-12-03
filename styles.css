@@ -1,29 +1,46 @@
 body {
-	margin: 8px;
+	margin: 0px;
 }
 
-table, th, td {
-	border: 1px solid black;
+table {
 	border-collapse: collapse;
+	margin: 5px;
+}
+
+thead {
+	background-color: lightgray;
+}
+
+th, td {
+	border: 1px solid black;
 	padding-left: 5px;
 	padding-right: 5px;
 	padding-top: 2px;
 	padding-bottom: 2px;
-	margin: 5px;
 }
 
 /*@media screen and (min-width: 700px) {*/
-	#menu {
-		position: fixed;
-		padding: 8px;
-		width: 100%;
-		height: 20px;
-		top: 0px;
-		left: 0px;
-		background-color: lightblue;
-	}
+#menu {
+	position: sticky;
+	top: 0px;
+	left: 0px;
+	right: 0px;
+	height: 20px;
+	padding: 8px;
+	background-color: lightblue;
+}
 
-	#content {
-		margin-top: 36px;
-	}
+#content {
+	position: absolute;
+	top: 36px;
+	left: 0px;
+	right: 0px;
+	bottom: 0px;
+	overflow-y: auto;
+}
 /*}*/
+
+#content > table.fixedHeader > thead {
+	position: sticky;
+	top: 0;
+}
