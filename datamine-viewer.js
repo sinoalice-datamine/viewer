@@ -1,8 +1,19 @@
 let db = {
 	json: {
 		loadingCount: 0,
-		character_mst_list: null,
-		character_ability_mst_list: null,
+		EN: {
+			character_mst_list: null,
+			character_ability_mst_list: null,
+			card_mst_list_en: null,
+			skill_mst_list: null,
+		},
+		JP: {
+			character_mst_list: null,
+			character_ability_mst_list: null,
+			card_mst_list: null,
+			skill_mst_list: null,
+		},
+		skill_multipliers: null,
 	},
 	index: {
 		characters: null,
@@ -11,9 +22,9 @@ let db = {
 	},
 };
 
-function viewClasses(db, isDebug) {
-	let character_mst_list         = db.json.character_mst_list;
-	let character_ability_mst_list = db.json.character_ability_mst_list;
+function viewClasses(version, db, isDebug) {
+	let character_mst_list         = db.json[version].character_mst_list;
+	let character_ability_mst_list = db.json[version].character_ability_mst_list;
 
 	db.index.characters = new Map();
 
@@ -155,8 +166,8 @@ function viewClasses(db, isDebug) {
 }
 
 function viewWeapons(version, db, isDebug, cardMstListName) {
-	let card_mst_list = db.json[cardMstListName];
-	let skill_mst_list = db.json.skill_mst_list;
+	let card_mst_list = db.json[version][cardMstListName];
+	let skill_mst_list = db.json[version].skill_mst_list;
 	let skill_multipliers = db.json.skill_multipliers;
 
 	const cardType_weapon = 1;
@@ -414,6 +425,50 @@ function viewWeapons(version, db, isDebug, cardMstListName) {
 	content.innerHTML = html;
 }
 
+function viewSkills(db, isDebug) {
+	let skill_mst_list_en = db.json.EN.skill_mst_list;
+	let skill_mst_list_jp = db.json.JP.skill_mst_list;
+
+	let skillMapJp = new Map();
+	for (let i = 0; i < skill_mst_list_jp.length; i++) {
+		let entry = skill_mst_list_jp[i];
+		skillMapJp.set(entry.skillMstId, entry);
+	}
+
+	let html = "<h1>Skills</h1>";
+	html += '<table class="fixedHeader"><thead><tr>';
+	html += '<th>skillMstId</th>';
+	html += '<th>name</th>';
+	html += '<th>description</th>';
+	html += '</tr></thead><tbody>';
+
+	for (let s = 0; s < skill_mst_list_en.length; s++) {
+		let skill = skill_mst_list_en[s];
+		let skill_jp = skillMapJp.get(skill.skillMstId);
+
+		html += `<tr>`;
+		if (skill_jp) {
+			html += `<td rowspan="2">${skill.skillMstId}</td>`;
+		} else {
+			html += `<td>${skill.skillMstId}</td>`;
+		}
+		html += `<td>${skill.name}</td>`;
+		html += `<td>${skill.description}</td>`;
+		html += `</tr>`;
+
+		if (skill_jp) {
+			html += `<tr>`;
+			html += `<td>${skill_jp.name}</td>`;
+			html += `<td>${skill_jp.description}</td>`;
+			html += `</tr>`;
+		}
+	}
+	html += '</tbody></table>';
+
+	let content = document.getElementById("content");
+	content.innerHTML = html;
+}
+
 function sanitizeVersion(version) {
 	if (!version)
 		return "EN";
@@ -428,14 +483,17 @@ function sanitizeVersion(version) {
 function asyncLoadDatamineJson(version, name, onLoadingDone) {
 	asyncLoadJson(
 		`https://raw.githubusercontent.com/sinoalice-datamine/data/master/${version}/${name}.json`,
-		name, onLoadingDone
+		version, name, onLoadingDone
 	);
 }
 
-function asyncLoadJson(url, name, onLoadingDone) {
+function asyncLoadJson(url, version, name, onLoadingDone) {
 	db.json.loadingCount++;
 	loadJSON(url, function(response) {
-		db.json[name] = JSON.parse(response);
+		if (version)
+			db.json[version][name] = JSON.parse(response);
+		else
+			db.json[name] = JSON.parse(response);
 		const remaining = --db.json.loadingCount;
 		if (remaining > 0)
 			return;
@@ -462,7 +520,7 @@ function showCurrentView(db) {
 	switch(params.get("view").toLowerCase()) {
 		case "classes":
 			let onLoadedClasses = function(db) {
-				viewClasses(db, isDebug);
+				viewClasses(version, db, isDebug);
 			};
 			asyncLoadDatamineJson(version, "character_mst_list", onLoadedClasses);
 			asyncLoadDatamineJson(version, "character_ability_mst_list", onLoadedClasses);
@@ -483,9 +541,16 @@ function showCurrentView(db) {
 			// EN and JP or creating translation table of skill names (which kinda defeats the purpose).
 			asyncLoadJson(
 				"https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec",
-				"skill_multipliers",
-				onLoadedCards
+				null, "skill_multipliers", onLoadedCards
 			);
+			break;
+
+		case "skills":
+			let onLoadedList = function(db) {
+				viewSkills(db, isDebug);
+			};
+			asyncLoadDatamineJson("EN", "skill_mst_list", onLoadedList);
+			asyncLoadDatamineJson("JP", "skill_mst_list", onLoadedList);
 			break;
 	}
 }
