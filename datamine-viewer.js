@@ -13,7 +13,8 @@ let db = {
 			card_mst_list: null,
 			skill_mst_list: null,
 		},
-		skill_multipliers: null,
+		skill_multipliers_blue: null,
+		weaponssearch_weapons: null,
 	},
 	index: {
 		characters: null,
@@ -21,6 +22,13 @@ let db = {
 		skills: null,
 	},
 };
+
+const cardType_weapon = 1;
+const cardType_armor = 2;
+const cardType_nightmare = 3;
+const cardType_upgradeExp = 5; // upgrade sword/shield/tablet
+const cardType_gold = 6;
+const cardType_skillExp = 7; // gem (story, story support, colo, colo support)
 
 function viewClasses(version, db, isDebug) {
 	let character_mst_list         = db.json[version].character_mst_list;
@@ -168,14 +176,7 @@ function viewClasses(version, db, isDebug) {
 function viewWeapons(version, db, isDebug, cardMstListName) {
 	let card_mst_list = db.json[version][cardMstListName];
 	let skill_mst_list = db.json[version].skill_mst_list;
-	let skill_multipliers = db.json.skill_multipliers;
-
-	const cardType_weapon = 1;
-	const cardType_armor = 2;
-	const cardType_nightmare = 3;
-	const cardType_upgradeExp = 5; // upgrade sword/shield/tablet
-	const cardType_gold = 6;
-	const cardType_skillExp = 7; // gem (story, story support, colo, colo support)
+	let skill_multipliers_blue = db.json.skill_multipliers_blue;
 
 	db.index.cards = {};
 	db.index.skills = {};
@@ -206,8 +207,8 @@ function viewWeapons(version, db, isDebug, cardMstListName) {
 		let skill_mst = skill_mst_list[i];
 		skills[skill_mst.skillMstId] = skill_mst;
 	}
-	for (let i = 0; i < skill_multipliers.length; i++) {
-		let mult = skill_multipliers[i];
+	for (let i = 0; i < skill_multipliers_blue.length; i++) {
+		let mult = skill_multipliers_blue[i];
 		let skill = skills[mult.skillMstId];
 		skill.mult = mult;
 
@@ -469,6 +470,81 @@ function viewSkills(db, isDebug) {
 	content.innerHTML = html;
 }
 
+function viewWeaponmap(db, isDebug) {
+	let card_mst_list = db.json.JP.card_mst_list;
+	let ws_weapons = db.json.weaponssearch_weapons;
+
+	// weaponssearch  | sino
+	// ID             | cardMstId
+	// UniqueID       | cardUniqueId
+
+	let weaponMap = new Map();
+	for (let i = 0; i < card_mst_list.length; i++) {
+		let entry = card_mst_list[i];
+		if (entry.cardType != cardType_weapon)
+			continue;
+
+		if (!weaponMap.has(entry.cardMstId)) {
+			weaponMap.set(entry.cardMstId, { mst: entry, ws: null });
+		} else {
+			console.error(`duplicate cardMstId: ${entry.cardMstId}`);
+		}
+	}
+
+	for (let i = 0; i < ws_weapons.length; i++) {
+		let wsEntry = ws_weapons[i];
+		if (wsEntry.ID == "")
+			continue;
+		let id = Number(wsEntry.ID);
+		let myEntry = weaponMap.get(id);
+		if (myEntry) {
+			myEntry.ws = wsEntry;
+		} else {
+			console.error(`unknown cardMstId in weaponssearch: ${wsEntry.ID}`);
+			weaponMap.set(wsEntry.ID, { mst: null, ws: wsEntry });
+		}
+	}
+
+	let html = "<h1>Weapon map</h1>";
+	html += '<table class="fixedHeader"><thead><tr>';
+	html += '<th>cardMstId</th>';
+	html += '<th>mst name</th>';
+	html += '<th>ws name</th>';
+	html += '<th>ws rates</th>';
+	html += '</tr></thead><tbody>';
+
+	for (const e of weaponMap.values()) {
+		let idStyle = "";
+		if (!e.mst) {
+			idStyle = ' style="background-color:lightcoral"';
+		} else if (!e.ws) {
+			idStyle = ' style="background-color:yellow"';
+		}
+
+		let id       = e.mst ? e.mst.cardMstId : e.ws.ID;
+		let mst_name = e.mst ? e.mst.name : "";
+		let ws_name  = e.ws ? e.ws.Name : "";
+		let ws_rates = e.ws ? e.ws.rate_text : "";
+
+		let wsNameStyle = "";
+		if (e.ws && e.mst && e.ws.Name != e.mst.name) {
+			wsNameStyle = ' style="background-color:lightcoral"';
+			// console.error(`Name mismatch for id ${id}: "${e.mst.name}" != "${e.ws.Name}"`);
+		}
+
+		html += `<tr>`;
+		html += `<td${idStyle}>${id}</td>`;
+		html += `<td>${mst_name}</td>`
+		html += `<td${wsNameStyle}>${ws_name}</td>`;
+		html += `<td>${ws_rates}</td>`;
+		html += `</tr>`;
+	}
+	html += '</tbody></table>';
+
+	let content = document.getElementById("content");
+	content.innerHTML = html;
+}
+
 function sanitizeVersion(version) {
 	if (!version)
 		return "EN";
@@ -513,10 +589,27 @@ function loadJSON(path, callback) {
 	xobj.send(null);
 }
 
+jsonpResult = null;
+function jsondata(obj) {
+	jsonpResult = obj;
+}
+
+function loadJSONP(path, onJsonpResult) {
+	let s = document.createElement("script");
+	s.src = path;
+	s.addEventListener("load", function() {
+		onJsonpResult(jsonpResult);
+		jsonpResult = null;
+		document.body.removeChild(s);
+	});
+	document.body.appendChild(s);
+}
+
 function showCurrentView(db) {
 	let params = new URLSearchParams(document.location.search);
 	let isDebug = params.has("debug");
 	let version = sanitizeVersion(params.get("version"));
+
 	switch(params.get("view").toLowerCase()) {
 		case "classes":
 			let onLoadedClasses = function(db) {
@@ -530,6 +623,7 @@ function showCurrentView(db) {
 			let cardMstListName = "card_mst_list";
 			if (version != "JP")
 				cardMstListName += `_${version.toLowerCase()}`;
+
 			let onLoadedCards = function(db) {
 				viewWeapons(version, db, isDebug, cardMstListName);
 			};
@@ -541,16 +635,31 @@ function showCurrentView(db) {
 			// EN and JP or creating translation table of skill names (which kinda defeats the purpose).
 			asyncLoadJson(
 				"https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec",
-				null, "skill_multipliers", onLoadedCards
+				null, "skill_multipliers_blue", onLoadedCards
 			);
 			break;
 
 		case "skills":
-			let onLoadedList = function(db) {
+			let onLoadedSkills = function(db) {
 				viewSkills(db, isDebug);
 			};
-			asyncLoadDatamineJson("EN", "skill_mst_list", onLoadedList);
-			asyncLoadDatamineJson("JP", "skill_mst_list", onLoadedList);
+			asyncLoadDatamineJson("EN", "skill_mst_list", onLoadedSkills);
+			asyncLoadDatamineJson("JP", "skill_mst_list", onLoadedSkills);
+			break;
+
+		case "weaponmap":
+			asyncLoadDatamineJson("JP", "card_mst_list", function(db) { viewWeaponmap(db, isDebug); });
+			db.json.loadingCount++;
+			loadJSONP(
+				"https://script.google.com/macros/s/AKfycby0_uQ6iu9tuWckhDA5Me_rbEMl_ukAbphjw1lYIXH73qBV7c6tg35926Z3SXhCXj0zZA/exec",
+				function(resp) {
+					db.json.weaponssearch_weapons = resp;
+					const remaining = --db.json.loadingCount;
+					if (remaining > 0)
+						return;
+					viewWeaponmap(db, isDebug);
+				}
+			);
 			break;
 	}
 }
