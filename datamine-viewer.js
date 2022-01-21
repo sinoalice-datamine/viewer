@@ -173,6 +173,22 @@ function viewClasses(version, db, isDebug) {
 	content.innerHTML = heading + totalStatsSection + unitSections;
 }
 
+function getMultiplierText(mult, multName) {
+	let res = "";
+	if (!mult)
+		return res;
+
+	if (mult.base && mult.base[multName]) {
+		res += mult.base[multName];
+	}
+
+	if (mult.alt && mult.alt[multName]) {
+		res += `(${mult.alt[multName]})`;
+	}
+
+	return res;
+}
+
 function viewWeapons(version, db, isDebug, cardMstListName) {
 	let card_mst_list = db.json[version][cardMstListName];
 	let skill_mst_list = db.json[version].skill_mst_list;
@@ -304,23 +320,6 @@ function viewWeapons(version, db, isDebug, cardMstListName) {
 
 	const rarityMap = ["D", "C", "B", "A", "S", "SR", "L", "LL"];
 
-	const getMultiplierText = function(skill, multName) {
-		let res = "";
-		let mult = skill.mult;
-		if (!mult)
-			return res;
-
-		if (mult.base && mult.base[multName]) {
-			res += mult.base[multName];
-		}
-
-		if (mult.alt && mult.alt[multName]) {
-			res += `(${mult.alt[multName]})`;
-		}
-
-		return res;
-	};
-
 	for (let c = 0; c < cardList.length; c++) {
 		let card = cardList[c];
 		for (let i = 0; i < card.variants.length; i++) {
@@ -403,12 +402,12 @@ function viewWeapons(version, db, isDebug, cardMstListName) {
 				html += `<td>${frontSkill.name}</td>`;
 				html += `<td>${frontSkill.sp}</td>`;
 				html += `<td>${targetsText}</td>`;
-				html += `<td>${getMultiplierText(frontSkill, 'damage')}</td>`;
-				html += `<td>${getMultiplierText(frontSkill, 'recovery')}</td>`;
-				html += `<td>${getMultiplierText(frontSkill, 'patk')}</td>`;
-				html += `<td>${getMultiplierText(frontSkill, 'matk')}</td>`;
-				html += `<td>${getMultiplierText(frontSkill, 'pdef')}</td>`;
-				html += `<td>${getMultiplierText(frontSkill, 'mdef')}</td>`;
+				html += `<td>${getMultiplierText(frontSkill.mult, 'damage')}</td>`;
+				html += `<td>${getMultiplierText(frontSkill.mult, 'recovery')}</td>`;
+				html += `<td>${getMultiplierText(frontSkill.mult, 'patk')}</td>`;
+				html += `<td>${getMultiplierText(frontSkill.mult, 'matk')}</td>`;
+				html += `<td>${getMultiplierText(frontSkill.mult, 'pdef')}</td>`;
+				html += `<td>${getMultiplierText(frontSkill.mult, 'mdef')}</td>`;
 			} else {
 				html += `<td colspan="9">undef</td>`;
 			}
@@ -471,73 +470,157 @@ function viewSkills(db, isDebug) {
 }
 
 function viewWeaponmap(db, isDebug) {
-	let card_mst_list = db.json.JP.card_mst_list;
-	let ws_weapons = db.json.weaponssearch_weapons;
 
 	// weaponssearch  | sino
 	// ID             | cardMstId
 	// UniqueID       | cardUniqueId
 
+	// skill_mst_list[card_mst_list[ws.ID].frontSkillMstId].rates = ws.rate_text
+
 	let weaponMap = new Map();
-	for (let i = 0; i < card_mst_list.length; i++) {
-		let entry = card_mst_list[i];
-		if (entry.cardType != cardType_weapon)
-			continue;
+	let skillMap = new Map();
+	{
+		let card_mst_list_jp = db.json.JP.card_mst_list;
+		let card_mst_list_en = db.json.EN.card_mst_list_en;
+		let ws_weapons = db.json.weaponssearch_weapons;
 
-		if (!weaponMap.has(entry.cardMstId)) {
-			weaponMap.set(entry.cardMstId, { mst: entry, ws: null });
-		} else {
-			console.error(`duplicate cardMstId: ${entry.cardMstId}`);
+		for (let i = 0; i < card_mst_list_jp.length; i++) {
+			let entry = card_mst_list_jp[i];
+			if (entry.cardType != cardType_weapon)
+				continue;
+			if (!weaponMap.has(entry.cardMstId)) {
+				weaponMap.set(entry.cardMstId, { mst: entry, ws: null });
+			} else {
+				console.error(`duplicate cardMstId: ${entry.cardMstId}`);
+			}
+			if (!skillMap.has(entry.frontSkillMstId)) {
+				skillMap.set(entry.frontSkillMstId, {jp: null, en: null, ws: null, blue: null});
+			}
+		}
+		for (let i = 0; i < card_mst_list_en.length; i++) {
+			let entry = card_mst_list_en[i];
+			if (entry.cardType != cardType_weapon)
+				continue;
+			if (!skillMap.has(entry.frontSkillMstId)) {
+				skillMap.set(entry.frontSkillMstId, {jp: null, en: null, ws: null, blue: null});
+			}
+		}
+
+		for (let i = 0; i < ws_weapons.length; i++) {
+			let wsEntry = ws_weapons[i];
+			if (wsEntry.ID == "")
+				continue;
+			let id = Number(wsEntry.ID);
+			let myEntry = weaponMap.get(id);
+			if (myEntry) {
+				myEntry.ws = wsEntry;
+			} else {
+				console.error(`unknown cardMstId in weaponssearch: ${wsEntry.ID}`);
+				weaponMap.set(wsEntry.ID, { mst: null, ws: wsEntry });
+			}
 		}
 	}
 
-	for (let i = 0; i < ws_weapons.length; i++) {
-		let wsEntry = ws_weapons[i];
-		if (wsEntry.ID == "")
-			continue;
-		let id = Number(wsEntry.ID);
-		let myEntry = weaponMap.get(id);
-		if (myEntry) {
-			myEntry.ws = wsEntry;
-		} else {
-			console.error(`unknown cardMstId in weaponssearch: ${wsEntry.ID}`);
-			weaponMap.set(wsEntry.ID, { mst: null, ws: wsEntry });
+	{
+		let skill_mst_list_jp = db.json.JP.skill_mst_list;
+		let skill_mst_list_en = db.json.EN.skill_mst_list;
+		let skill_multipliers_blue = db.json.skill_multipliers_blue;
+		for (let i = 0; i < skill_mst_list_jp.length; i++) {
+			let entry = skill_mst_list_jp[i];
+			let myEntry = skillMap.get(entry.skillMstId);
+			if (myEntry) {
+				myEntry.jp = entry;
+			}
+		}
+		for (let i = 0; i < skill_mst_list_en.length; i++) {
+			let entry = skill_mst_list_en[i];
+			let myEntry = skillMap.get(entry.skillMstId);
+			if (myEntry) {
+				myEntry.en = entry;
+			}
+		}
+		for (const e of weaponMap.values()) {
+			if (!e.ws || !e.ws.rate_text || !e.mst)
+				continue;
+			let myEntry = skillMap.get(e.mst.frontSkillMstId);
+			if (myEntry.ws && myEntry.ws != e.ws.rate_text) {
+				console.error(`Duplicate rate_text for skill ${e.mst.frontSkillMstId}: '${myEntry.ws}' vs. '${e.ws.rate_text}'`);
+			}
+			myEntry.ws = e.ws.rate_text;
+		}
+		for (let i = 0; i < skill_multipliers_blue.length; i++) {
+			let e = skill_multipliers_blue[i];
+			let skill = skillMap.get(e.skillMstId);
+			if (skill) {
+				skill.blue = e;
+			}
 		}
 	}
 
-	let html = "<h1>Weapon map</h1>";
+	let skillList = [];
+	for (const e of skillMap.values()) {
+		skillList.push(e);
+	}
+	skillList.sort(function(a, b) {
+		if (a.en && b.en) {
+			if (a.en.name != b.en.name) {
+				return a.en.name.localeCompare(b.en.name);
+			}
+			return a.en.cardMstId - b.en.cardMstId;
+		} else if (a.en && !b.en) {
+			return -1;
+		} else {
+			return 1;
+		}
+	});
+
+	let html = "<h1>Skill map</h1>";
 	html += '<table class="fixedHeader"><thead><tr>';
-	html += '<th>cardMstId</th>';
-	html += '<th>mst name</th>';
-	html += '<th>ws name</th>';
+	html += '<th>skillMstId</th>';
+	html += '<th>name</th>';
+	html += '<th>description</th>';
 	html += '<th>ws rates</th>';
+	html += '<th>blue rates</th>'
 	html += '</tr></thead><tbody>';
 
-	for (const e of weaponMap.values()) {
-		let idStyle = "";
-		if (!e.mst) {
-			idStyle = ' style="background-color:lightcoral"';
-		} else if (!e.ws) {
-			idStyle = ' style="background-color:yellow"';
-		}
+	for (let i = 0; i < skillList.length; i++) {
+		let e = skillList[i];
+		let id       = e.en ? e.en.skillMstId : e.jp.skillMstId;
+		let en_name  = e.en ? e.en.name : "";
+		let en_desc  = e.en ? e.en.description.replace("\\n", "<br>") : "";
+		let jp_name  = e.jp ? e.jp.name : "";
+		let jp_desc  = e.jp ? e.jp.description.replace("\\n", "<br>") : "";
+		let ws_rates = e.ws ? e.ws : "";
 
-		let id       = e.mst ? e.mst.cardMstId : e.ws.ID;
-		let mst_name = e.mst ? e.mst.name : "";
-		let ws_name  = e.ws ? e.ws.Name : "";
-		let ws_rates = e.ws ? e.ws.rate_text : "";
-
-		let wsNameStyle = "";
-		if (e.ws && e.mst && e.ws.Name != e.mst.name) {
-			wsNameStyle = ' style="background-color:lightcoral"';
-			// console.error(`Name mismatch for id ${id}: "${e.mst.name}" != "${e.ws.Name}"`);
+		let blue_rates = '';
+		if (e.blue) {
+			let b = e.blue;
+			let text = getMultiplierText(b, 'damage');
+			if (text) blue_rates += `damage: ${text},`;
+			text = getMultiplierText(b, 'recovery');
+			if (text) blue_rates += `recovery: ${text},`;
+			text = getMultiplierText(b, 'patk');
+			if (text) blue_rates += `patk: ${text},`;
+			text = getMultiplierText(b, 'matk');
+			if (text) blue_rates += `matk: ${text},`;
+			text = getMultiplierText(b, 'pdef');
+			if (text) blue_rates += `pdef: ${text},`;
+			text = getMultiplierText(b, 'mdef');
+			if (text) blue_rates += `mdef: ${text},`;
 		}
 
 		html += `<tr>`;
-		html += `<td${idStyle}>${id}</td>`;
-		html += `<td>${mst_name}</td>`
-		html += `<td${wsNameStyle}>${ws_name}</td>`;
-		html += `<td>${ws_rates}</td>`;
+		html += `<td rowspan=2>${id}</td>`;
+		html += `<td>${en_name}</td>`
+		html += `<td>${en_desc}</td>`
+		html += `<td rowspan=2>${ws_rates}</td>`;
+		html += `<td rowspan=2>${blue_rates}</td>`;
 		html += `</tr>`;
+
+		html += `<tr>`;
+		html += `<td>${jp_name}</td>`;
+		html += `<td>${jp_desc}</td>`;
+		html += `<tr>`;
 	}
 	html += '</tbody></table>';
 
@@ -594,13 +677,18 @@ function jsondata(obj) {
 	jsonpResult = obj;
 }
 
-function loadJSONP(path, onJsonpResult) {
+function asyncLoadJsonp(url, name, onLoadingDone) {
+	db.json.loadingCount++;
 	let s = document.createElement("script");
-	s.src = path;
+	s.src = url;
 	s.addEventListener("load", function() {
-		onJsonpResult(jsonpResult);
+		db.json[name] = jsonpResult;
 		jsonpResult = null;
 		document.body.removeChild(s);
+		const remaining = --db.json.loadingCount;
+		if (remaining > 0)
+			return;
+		onLoadingDone(db);
 	});
 	document.body.appendChild(s);
 }
@@ -648,18 +736,20 @@ function showCurrentView(db) {
 			break;
 
 		case "weaponmap":
-			asyncLoadDatamineJson("JP", "card_mst_list", function(db) { viewWeaponmap(db, isDebug); });
-			db.json.loadingCount++;
-			loadJSONP(
-				"https://script.google.com/macros/s/AKfycby0_uQ6iu9tuWckhDA5Me_rbEMl_ukAbphjw1lYIXH73qBV7c6tg35926Z3SXhCXj0zZA/exec",
-				function(resp) {
-					db.json.weaponssearch_weapons = resp;
-					const remaining = --db.json.loadingCount;
-					if (remaining > 0)
-						return;
-					viewWeaponmap(db, isDebug);
-				}
+			let onWeaponmapDataLoaded = function(db) { viewWeaponmap(db, isDebug); };
+			asyncLoadDatamineJson("EN", "skill_mst_list", onWeaponmapDataLoaded);
+			asyncLoadDatamineJson("JP", "skill_mst_list", onWeaponmapDataLoaded);
+			asyncLoadDatamineJson("EN", "card_mst_list_en", onWeaponmapDataLoaded);
+			asyncLoadDatamineJson("JP", "card_mst_list", onWeaponmapDataLoaded);
+			asyncLoadJson(
+				"https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec",
+				null, "skill_multipliers_blue", onWeaponmapDataLoaded
 			);
+			asyncLoadJsonp(
+				"https://script.google.com/macros/s/AKfycby0_uQ6iu9tuWckhDA5Me_rbEMl_ukAbphjw1lYIXH73qBV7c6tg35926Z3SXhCXj0zZA/exec",
+				"weaponssearch_weapons", onWeaponmapDataLoaded
+			);
+
 			break;
 	}
 }
