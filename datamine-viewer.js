@@ -15,6 +15,7 @@ let db = {
 		},
 		skill_multipliers_blue: null,
 		weaponssearch_weapons: null,
+		gc_stats: null,
 	},
 	index: {
 		characters: null,
@@ -628,6 +629,48 @@ function viewWeaponmap(db, isDebug) {
 	content.innerHTML = html;
 }
 
+function viewGcStats(db) {
+	let gc_stats = db.json.gc_stats;
+
+	let generateTable = function(table) {
+		let html = `<h2>${table.title}</h2>`;
+
+		let thead = table.thead;
+		let tbody = table.tbody;
+
+		html += '<table><thead><tr>';
+		for (let i = 0; i < thead.length; i++) {
+			html += `<th>${thead[i]}</th>`;
+		}
+		html += '</tr></thead><tbody>';
+
+		for (let r = 0; r < tbody.length; r++) {
+			let row = tbody[r];
+			html += '<tr>';
+			for (let i = 0; i < row.length; i++) {
+				html += `<td>${row[i]}</td>`
+			}
+			html += '</tr>';
+		}
+
+		html += `</tbody></table>`;
+		return html;
+	}
+
+	let html = '<h1>GC stats</h1>';
+	html += generateTable(gc_stats.guild_counts);
+	html += generateTable(gc_stats.birth_death_17_18);
+	html += generateTable(gc_stats.birth_death_16_17);
+	html += generateTable(gc_stats.birth_death_15_16);
+	html += generateTable(gc_stats.birth_death_14_15);
+	html += generateTable(gc_stats.birth_death_13_14);
+	html += generateTable(gc_stats.birth_death_12_13);
+	html += generateTable(gc_stats.birth_death_11_12);
+
+	let content = document.getElementById("content");
+	content.innerHTML = html;
+}
+
 function sanitizeVersion(version) {
 	if (!version)
 		return "EN";
@@ -750,6 +793,8 @@ function showCurrentView(db) {
 				"weaponssearch_weapons", onWeaponmapDataLoaded
 			);
 
+		case "gcstats":
+			asyncLoadJson("cache/gc_stats.json", null, "gc_stats", function(db) { viewGcStats(db); });
 			break;
 	}
 }
