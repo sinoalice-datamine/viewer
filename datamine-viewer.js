@@ -6,12 +6,14 @@ let db = {
 			character_ability_mst_list: null,
 			card_mst_list_en: null,
 			skill_mst_list: null,
+			art_mst_list: null,
 		},
 		JP: {
 			character_mst_list: null,
 			character_ability_mst_list: null,
 			card_mst_list: null,
 			skill_mst_list: null,
+			art_mst_list: null,
 		},
 		skill_multipliers_blue: null,
 		weaponssearch_weapons: null,
@@ -30,6 +32,8 @@ const cardType_nightmare = 3;
 const cardType_upgradeExp = 5; // upgrade sword/shield/tablet
 const cardType_gold = 6;
 const cardType_skillExp = 7; // gem (story, story support, colo, colo support)
+
+const rarityMap = ["D", "C", "B", "A", "S", "SR", "L", "LL"];
 
 function viewClasses(version, db, isDebug) {
 	let character_mst_list         = db.json[version].character_mst_list;
@@ -319,8 +323,6 @@ function viewWeapons(version, db, isDebug, cardMstListName) {
 	}
 	html += '</tr></thead><tbody>';
 
-	const rarityMap = ["D", "C", "B", "A", "S", "SR", "L", "LL"];
-
 	for (let c = 0; c < cardList.length; c++) {
 		let card = cardList[c];
 		for (let i = 0; i < card.variants.length; i++) {
@@ -419,6 +421,70 @@ function viewWeapons(version, db, isDebug, cardMstListName) {
 			}
 			html += '</tr>';
 		}
+	}
+	html += '</tbody></table>';
+
+	let content = document.getElementById("content");
+	content.innerHTML = html;
+}
+
+function viewNightmares(version, db, isDebug, cardMstListName) {
+	let card_mst_list = db.json[version][cardMstListName];
+	let art_mst_list = db.json[version].art_mst_list;
+
+	let art_mst_map = {};
+	for (let i = 0; i < art_mst_list.length; i++) {
+		const art = art_mst_list[i];
+		art_mst_map[art.artMstId] = art;
+	}
+
+	let html = "<h1>Nightmares</h1>";
+	html += '<table class="fixedHeader"><thead><tr>';
+	if (isDebug) {
+		html += '<th>cardMstId</th>';
+	}
+	html += '<th>name</th>';
+	html += '<th>rarity</th>';
+	if (isDebug) {
+		html += '<th>questArtMstId</th>';
+	}
+	html += '<th>Story skill</th>';
+	if (isDebug) {
+		html += '<th>artMstId</th>';
+	}
+	html += '<th>Colosseum skill</th>';
+	html += '</tr></thead><tbody>';
+
+	for (let i = 0; i < card_mst_list.length; i++) {
+		let card = card_mst_list[i];
+		if (card.cardType != cardType_nightmare)
+			continue;
+
+		if (!isDebug && !card.isRelease)
+			continue;
+
+		html += '<tr>';
+
+		if (isDebug) {
+			html += `<td>${card.cardMstId}</td>`;
+		}
+
+		html += `<td>${card.name}</td>`;
+		html += `<td>${rarityMap[card.rarity]}</td>`;
+
+		let storySkill = art_mst_map[card.questArtMstId];
+		let coloSkill = art_mst_map[card.artMstId];
+
+		if (isDebug) {
+			html += `<td>${card.questArtMstId}</td>`;
+		}
+		html += `<td>${storySkill ? storySkill.name : "undef"}</td>`;
+		if (isDebug) {
+			html += `<td>${card.artMstId}</td>`;
+		}
+		html += `<td>${coloSkill ? coloSkill.name : "undef"}</td>`;
+
+		html += '</tr>';
 	}
 	html += '</tbody></table>';
 
@@ -740,6 +806,9 @@ function showCurrentView(db) {
 	let params = new URLSearchParams(document.location.search);
 	let isDebug = params.has("debug");
 	let version = sanitizeVersion(params.get("version"));
+	let cardMstListName = "card_mst_list";
+	if (version != "JP")
+		cardMstListName += `_${version.toLowerCase()}`;
 
 	switch(params.get("view").toLowerCase()) {
 		case "classes":
@@ -751,10 +820,6 @@ function showCurrentView(db) {
 			break;
 
 		case "weapons":
-			let cardMstListName = "card_mst_list";
-			if (version != "JP")
-				cardMstListName += `_${version.toLowerCase()}`;
-
 			let onLoadedCards = function(db) {
 				viewWeapons(version, db, isDebug, cardMstListName);
 			};
@@ -793,8 +858,10 @@ function showCurrentView(db) {
 				"weaponssearch_weapons", onWeaponmapDataLoaded
 			);
 
-		case "gcstats":
-			asyncLoadJson("cache/gc_stats.json", null, "gc_stats", function(db) { viewGcStats(db); });
+		case "nightmares":
+			let onLoadedNightmares = function(db) { viewNightmares(version, db, isDebug, cardMstListName); };
+			asyncLoadDatamineJson(version, cardMstListName, onLoadedNightmares);
+			asyncLoadDatamineJson(version, "art_mst_list", onLoadedNightmares);
 			break;
 	}
 }
