@@ -1,25 +1,5 @@
 let db = {
 	json_cache: new Map(),
-	json: {
-		loadingCount: 0,
-		EN: {
-			character_mst_list: null,
-			character_ability_mst_list: null,
-			card_mst_list_en: null,
-			skill_mst_list: null,
-			art_mst_list: null,
-		},
-		JP: {
-			character_mst_list: null,
-			character_ability_mst_list: null,
-			card_mst_list: null,
-			skill_mst_list: null,
-			art_mst_list: null,
-		},
-		skill_multipliers_blue: null,
-		weaponssearch_weapons: null,
-		gc_stats: null,
-	},
 	index: {
 		characters: null,
 		cards: null,
@@ -524,8 +504,7 @@ function viewSkills(skill_mst_list_en, skill_mst_list_jp, isDebug) {
 	content.innerHTML = html;
 }
 
-function viewWeaponmap(db, isDebug) {
-
+function viewWeaponmap(lists, isDebug) {
 	// weaponssearch  | sino
 	// ID             | cardMstId
 	// UniqueID       | cardUniqueId
@@ -535,9 +514,9 @@ function viewWeaponmap(db, isDebug) {
 	let weaponMap = new Map();
 	let skillMap = new Map();
 	{
-		let card_mst_list_jp = db.json.JP.card_mst_list;
-		let card_mst_list_en = db.json.EN.card_mst_list_en;
-		let ws_weapons = db.json.weaponssearch_weapons;
+		let card_mst_list_jp = lists.card_mst_list_jp;
+		let card_mst_list_en = lists.card_mst_list_en;
+		let ws_weapons = lists.weaponssearch_weapons;
 
 		for (let i = 0; i < card_mst_list_jp.length; i++) {
 			let entry = card_mst_list_jp[i];
@@ -577,9 +556,9 @@ function viewWeaponmap(db, isDebug) {
 	}
 
 	{
-		let skill_mst_list_jp = db.json.JP.skill_mst_list;
-		let skill_mst_list_en = db.json.EN.skill_mst_list;
-		let skill_multipliers_blue = db.json.skill_multipliers_blue;
+		let skill_mst_list_jp = lists.skill_mst_list_jp;
+		let skill_mst_list_en = lists.skill_mst_list_en;
+		let skill_multipliers_blue = lists.skill_multipliers_blue;
 		for (let i = 0; i < skill_mst_list_jp.length; i++) {
 			let entry = skill_mst_list_jp[i];
 			let myEntry = skillMap.get(entry.skillMstId);
@@ -736,62 +715,8 @@ function sanitizeVersion(version) {
 	return version;
 }
 
-function asyncLoadDatamineJson(version, name, onLoadingDone) {
-	asyncLoadJson(
-		`https://raw.githubusercontent.com/sinoalice-datamine/data/master/${version}/${name}.json`,
-		version, name, onLoadingDone
-	);
-}
-
 function datamineJsonUrl(path) {
 	return `https://raw.githubusercontent.com/sinoalice-datamine/data/master/${path}.json`;
-}
-
-function asyncLoadJson(url, version, name, onLoadingDone) {
-	db.json.loadingCount++;
-	loadJSON(url, function(response) {
-		if (version)
-			db.json[version][name] = JSON.parse(response);
-		else
-			db.json[name] = JSON.parse(response);
-		const remaining = --db.json.loadingCount;
-		if (remaining > 0)
-			return;
-		onLoadingDone(db);
-	});
-}
-
-function loadJSON(path, callback) {
-	let xobj = new XMLHttpRequest();
-	xobj.overrideMimeType("application/json");
-	xobj.open('GET', path, true);
-	xobj.onreadystatechange = function () {
-		if (xobj.readyState == 4 && xobj.status == "200") {
-			callback(xobj.responseText);
-		}
-	};
-	xobj.send(null);
-}
-
-jsonpResult = null;
-function jsondata(obj) {
-	jsonpResult = obj;
-}
-
-function asyncLoadJsonp(url, name, onLoadingDone) {
-	db.json.loadingCount++;
-	let s = document.createElement("script");
-	s.src = url;
-	s.addEventListener("load", function() {
-		db.json[name] = jsonpResult;
-		jsonpResult = null;
-		document.body.removeChild(s);
-		const remaining = --db.json.loadingCount;
-		if (remaining > 0)
-			return;
-		onLoadingDone(db);
-	});
-	document.body.appendChild(s);
 }
 
 async function showCurrentView(db) {
@@ -845,19 +770,23 @@ async function showCurrentView(db) {
 
 		case "weaponmap":
 		{
-			let onWeaponmapDataLoaded = function(db) { viewWeaponmap(db, isDebug); };
-			asyncLoadDatamineJson("EN", "skill_mst_list", onWeaponmapDataLoaded);
-			asyncLoadDatamineJson("JP", "skill_mst_list", onWeaponmapDataLoaded);
-			asyncLoadDatamineJson("EN", "card_mst_list_en", onWeaponmapDataLoaded);
-			asyncLoadDatamineJson("JP", "card_mst_list", onWeaponmapDataLoaded);
-			asyncLoadJson(
-				"https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec",
-				null, "skill_multipliers_blue", onWeaponmapDataLoaded
-			);
-			asyncLoadJsonp(
-				"https://script.google.com/macros/s/AKfycby0_uQ6iu9tuWckhDA5Me_rbEMl_ukAbphjw1lYIXH73qBV7c6tg35926Z3SXhCXj0zZA/exec",
-				"weaponssearch_weapons", onWeaponmapDataLoaded
-			);
+			const results = await Promise.allSettled([
+				loadJson(db.json_cache, datamineJsonUrl("EN/skill_mst_list")),
+				loadJson(db.json_cache, datamineJsonUrl("JP/skill_mst_list")),
+				loadJson(db.json_cache, datamineJsonUrl("EN/card_mst_list_en")),
+				loadJson(db.json_cache, datamineJsonUrl("JP/card_mst_list")),
+				loadJson(db.json_cache, "https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec"),
+				loadJsonp(db.json_cache, "https://script.google.com/macros/s/AKfycby0_uQ6iu9tuWckhDA5Me_rbEMl_ukAbphjw1lYIXH73qBV7c6tg35926Z3SXhCXj0zZA/exec"),
+			]);
+			const lists = {
+				skill_mst_list_en: results[0].value,
+				skill_mst_list_jp: results[1].value,
+				card_mst_list_en: results[2].value,
+				card_mst_list_jp: results[3].value,
+				skill_multipliers_blue: results[4].value,
+				weaponssearch_weapons: results[5].value,
+			};
+			viewWeaponmap(lists, isDebug);
 		}
 		break;
 

@@ -1,5 +1,8 @@
 "use strict;"
 
+//--------------
+// HTTP request
+
 function asyncRequest(method, url) {
 	return new Promise(function(resolve, reject) {
 		let xhr = new XMLHttpRequest();
@@ -32,6 +35,39 @@ async function loadJson(cache, url) {
 
 	let response = await asyncRequest("GET", url);
 	json = JSON.parse(response);
+	cache.set(url, json);
+	return json;
+}
+
+//---------------
+// JSONP request
+
+jsonpResult = null;
+function jsondata(obj) {
+	jsonpResult = obj;
+}
+
+function asyncRequestJsonp(url) {
+	return new Promise(function(resolve, reject) {
+		let s = document.createElement("script");
+		s.src = url;
+		s.addEventListener("load", function() {
+			let res = jsonpResult;
+			jsonpResult = null;
+			document.body.removeChild(s);
+			resolve(res);
+		});
+		document.body.appendChild(s);
+	});
+}
+
+async function loadJsonp(cache, url) {
+	let json = cache.get(url);
+	if (json) {
+		return json;
+	}
+
+	json = await asyncRequestJsonp(url);
 	cache.set(url, json);
 	return json;
 }
