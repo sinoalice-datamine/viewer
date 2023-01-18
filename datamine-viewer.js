@@ -1,4 +1,5 @@
 let db = {
+	json_cache: new Map(),
 	json: {
 		loadingCount: 0,
 		EN: {
@@ -35,10 +36,7 @@ const cardType_skillExp = 7; // gem (story, story support, colo, colo support)
 
 const rarityMap = ["D", "C", "B", "A", "S", "SR", "L", "LL"];
 
-function viewClasses(version, db, isDebug) {
-	let character_mst_list         = db.json[version].character_mst_list;
-	let character_ability_mst_list = db.json[version].character_ability_mst_list;
-
+function viewClasses(db, character_mst_list, character_ability_mst_list, isDebug) {
 	db.index.characters = new Map();
 
 	let characters = db.index.characters;
@@ -194,11 +192,7 @@ function getMultiplierText(mult, multName) {
 	return res;
 }
 
-function viewWeapons(version, db, isDebug, cardMstListName) {
-	let card_mst_list = db.json[version][cardMstListName];
-	let skill_mst_list = db.json[version].skill_mst_list;
-	let skill_multipliers_blue = db.json.skill_multipliers_blue;
-
+function viewWeapons(version, db, card_mst_list, skill_mst_list, skill_multipliers_blue, isDebug) {
 	db.index.cards = {};
 	db.index.skills = {};
 
@@ -428,10 +422,7 @@ function viewWeapons(version, db, isDebug, cardMstListName) {
 	content.innerHTML = html;
 }
 
-function viewNightmares(version, db, isDebug, cardMstListName) {
-	let card_mst_list = db.json[version][cardMstListName];
-	let art_mst_list = db.json[version].art_mst_list;
-
+function viewNightmares(card_mst_list, art_mst_list, isDebug) {
 	let art_mst_map = {};
 	for (let i = 0; i < art_mst_list.length; i++) {
 		const art = art_mst_list[i];
@@ -492,10 +483,7 @@ function viewNightmares(version, db, isDebug, cardMstListName) {
 	content.innerHTML = html;
 }
 
-function viewSkills(db, isDebug) {
-	let skill_mst_list_en = db.json.EN.skill_mst_list;
-	let skill_mst_list_jp = db.json.JP.skill_mst_list;
-
+function viewSkills(skill_mst_list_en, skill_mst_list_jp, isDebug) {
 	let skillMapJp = new Map();
 	for (let i = 0; i < skill_mst_list_jp.length; i++) {
 		let entry = skill_mst_list_jp[i];
@@ -755,6 +743,10 @@ function asyncLoadDatamineJson(version, name, onLoadingDone) {
 	);
 }
 
+function datamineJsonUrl(path) {
+	return `https://raw.githubusercontent.com/sinoalice-datamine/data/master/${path}.json`;
+}
+
 function asyncLoadJson(url, version, name, onLoadingDone) {
 	db.json.loadingCount++;
 	loadJSON(url, function(response) {
@@ -802,7 +794,7 @@ function asyncLoadJsonp(url, name, onLoadingDone) {
 	document.body.appendChild(s);
 }
 
-function showCurrentView(db) {
+async function showCurrentView(db) {
 	let params = new URLSearchParams(document.location.search);
 	let isDebug = params.has("debug");
 	let version = sanitizeVersion(params.get("version"));
@@ -810,40 +802,49 @@ function showCurrentView(db) {
 	if (version != "JP")
 		cardMstListName += `_${version.toLowerCase()}`;
 
-	switch(params.get("view").toLowerCase()) {
+	let view = params.get("view");
+	if (!view)
+		return;
+
+	view = view.toLowerCase();
+	switch(view) {
 		case "classes":
-			let onLoadedClasses = function(db) {
-				viewClasses(version, db, isDebug);
-			};
-			asyncLoadDatamineJson(version, "character_mst_list", onLoadedClasses);
-			asyncLoadDatamineJson(version, "character_ability_mst_list", onLoadedClasses);
-			break;
+		{
+			const [characterMst, characterAbilityMst] = await Promise.allSettled([
+				loadJson(db.json_cache, datamineJsonUrl(`${version}/character_mst_list`)),
+				loadJson(db.json_cache, datamineJsonUrl(`${version}/character_ability_mst_list`)),
+			]);
+			viewClasses(db, characterMst.value, characterAbilityMst.value, isDebug);
+		}
+		break;
 
 		case "weapons":
-			let onLoadedCards = function(db) {
-				viewWeapons(version, db, isDebug, cardMstListName);
-			};
-			asyncLoadDatamineJson(version, cardMstListName, onLoadedCards);
-			asyncLoadDatamineJson(version, "skill_mst_list", onLoadedCards);
+		{
 			// JP skill multipliers (origin of values in Blue's sheets):
 			//   https://script.google.com/macros/s/AKfycbzz_h3lGLUPMsSSfwvPZYQrj7r0cR2j0rdQ0YI7lC0prXc5Yrnj2ag9rrm_iPG-ZYfu/exec?callback=jsondata&_=1637531292144
 			// TODO: Use these as source if possible. Requires checking whether skillMstId matches between
 			// EN and JP or creating translation table of skill names (which kinda defeats the purpose).
-			asyncLoadJson(
-				"https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec",
-				null, "skill_multipliers_blue", onLoadedCards
-			);
-			break;
+			const [cardMst, skillMst, skillMultipliersBlue] = await Promise.allSettled([
+				loadJson(db.json_cache, datamineJsonUrl(`${version}/${cardMstListName}`)),
+				loadJson(db.json_cache, datamineJsonUrl(`${version}/skill_mst_list`)),
+				loadJson(db.json_cache, "https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec"),
+			])
+			viewWeapons(version, db, cardMst.value, skillMst.value, skillMultipliersBlue.value, isDebug);
+		}
+		break;
 
 		case "skills":
-			let onLoadedSkills = function(db) {
-				viewSkills(db, isDebug);
-			};
-			asyncLoadDatamineJson("EN", "skill_mst_list", onLoadedSkills);
-			asyncLoadDatamineJson("JP", "skill_mst_list", onLoadedSkills);
-			break;
+		{
+			const [skillMstEn, skillMstJp] = await Promise.allSettled([
+				loadJson(db.json_cache, datamineJsonUrl("EN/skill_mst_list")),
+				loadJson(db.json_cache, datamineJsonUrl("JP/skill_mst_list")),
+			]);
+			viewSkills(skillMstEn.value, skillMstJp.value, isDebug);
+		}
+		break;
 
 		case "weaponmap":
+		{
 			let onWeaponmapDataLoaded = function(db) { viewWeaponmap(db, isDebug); };
 			asyncLoadDatamineJson("EN", "skill_mst_list", onWeaponmapDataLoaded);
 			asyncLoadDatamineJson("JP", "skill_mst_list", onWeaponmapDataLoaded);
@@ -857,12 +858,19 @@ function showCurrentView(db) {
 				"https://script.google.com/macros/s/AKfycby0_uQ6iu9tuWckhDA5Me_rbEMl_ukAbphjw1lYIXH73qBV7c6tg35926Z3SXhCXj0zZA/exec",
 				"weaponssearch_weapons", onWeaponmapDataLoaded
 			);
+		}
+		break;
 
 		case "nightmares":
-			let onLoadedNightmares = function(db) { viewNightmares(version, db, isDebug, cardMstListName); };
-			asyncLoadDatamineJson(version, cardMstListName, onLoadedNightmares);
-			asyncLoadDatamineJson(version, "art_mst_list", onLoadedNightmares);
-			break;
+		{
+			const [cardMst, artMst] = await Promise.allSettled([
+				loadJson(db.json_cache, datamineJsonUrl(`${version}/${cardMstListName}`)),
+				loadJson(db.json_cache, datamineJsonUrl(`${version}/art_mst_list`)),
+			]);
+			viewNightmares(cardMst.value, artMst.value, isDebug);
+		}
+		break;
+
 	}
 }
 
