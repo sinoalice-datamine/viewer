@@ -1,5 +1,5 @@
 let db = {
-	json_cache: new Map(),
+	json: new Map(),
 	index: {
 		characters: null,
 		cards: null,
@@ -154,6 +154,8 @@ function viewClasses(db, character_mst_list, character_ability_mst_list, isDebug
 
 	let content = document.getElementById("content");
 	content.innerHTML = heading + totalStatsSection + unitSections;
+
+	return "Datamine viewer - units";
 }
 
 function getMultiplierText(mult, multName) {
@@ -400,6 +402,8 @@ function viewWeapons(version, db, card_mst_list, skill_mst_list, skill_multiplie
 
 	let content = document.getElementById("content");
 	content.innerHTML = html;
+
+	return "Datamine viewer - weapons";
 }
 
 function viewNightmares(card_mst_list, art_mst_list, isDebug) {
@@ -461,6 +465,8 @@ function viewNightmares(card_mst_list, art_mst_list, isDebug) {
 
 	let content = document.getElementById("content");
 	content.innerHTML = html;
+
+	return "Datamine viewer - nightmares";
 }
 
 function viewSkills(skill_mst_list_en, skill_mst_list_jp, isDebug) {
@@ -502,6 +508,8 @@ function viewSkills(skill_mst_list_en, skill_mst_list_jp, isDebug) {
 
 	let content = document.getElementById("content");
 	content.innerHTML = html;
+
+	return "Datamine viewer - skills";
 }
 
 function viewWeaponmap(lists, isDebug) {
@@ -660,6 +668,8 @@ function viewWeaponmap(lists, isDebug) {
 
 	let content = document.getElementById("content");
 	content.innerHTML = html;
+
+	return "Datamine viewer - skill map"
 }
 
 function viewGcStats(db) {
@@ -702,6 +712,8 @@ function viewGcStats(db) {
 
 	let content = document.getElementById("content");
 	content.innerHTML = html;
+
+	return "Datamine viewer - GC stats";
 }
 
 function sanitizeVersion(version) {
@@ -719,8 +731,8 @@ function datamineJsonUrl(path) {
 	return `https://raw.githubusercontent.com/sinoalice-datamine/data/master/${path}.json`;
 }
 
-async function showCurrentView(db) {
-	let params = new URLSearchParams(document.location.search);
+async function showView(searchText) {
+	let params = new URLSearchParams(searchText);
 	let isDebug = params.has("debug");
 	let version = sanitizeVersion(params.get("version"));
 	let cardMstListName = "card_mst_list";
@@ -729,17 +741,18 @@ async function showCurrentView(db) {
 
 	let view = params.get("view");
 	if (!view)
-		return;
+		view = '';
 
-	view = view.toLowerCase();
-	switch(view) {
+	let pageTitle;
+	switch(view.toLowerCase())
+	{
 		case "classes":
 		{
 			const [characterMst, characterAbilityMst] = await Promise.allSettled([
-				loadJson(db.json_cache, datamineJsonUrl(`${version}/character_mst_list`)),
-				loadJson(db.json_cache, datamineJsonUrl(`${version}/character_ability_mst_list`)),
+				loadJson(db.json, datamineJsonUrl(`${version}/character_mst_list`)),
+				loadJson(db.json, datamineJsonUrl(`${version}/character_ability_mst_list`)),
 			]);
-			viewClasses(db, characterMst.value, characterAbilityMst.value, isDebug);
+			pageTitle = viewClasses(db, characterMst.value, characterAbilityMst.value, isDebug);
 		}
 		break;
 
@@ -750,33 +763,33 @@ async function showCurrentView(db) {
 			// TODO: Use these as source if possible. Requires checking whether skillMstId matches between
 			// EN and JP or creating translation table of skill names (which kinda defeats the purpose).
 			const [cardMst, skillMst, skillMultipliersBlue] = await Promise.allSettled([
-				loadJson(db.json_cache, datamineJsonUrl(`${version}/${cardMstListName}`)),
-				loadJson(db.json_cache, datamineJsonUrl(`${version}/skill_mst_list`)),
-				loadJson(db.json_cache, "https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec"),
+				loadJson(db.json, datamineJsonUrl(`${version}/${cardMstListName}`)),
+				loadJson(db.json, datamineJsonUrl(`${version}/skill_mst_list`)),
+				loadJson(db.json, "https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec"),
 			])
-			viewWeapons(version, db, cardMst.value, skillMst.value, skillMultipliersBlue.value, isDebug);
+			pageTitle = viewWeapons(version, db, cardMst.value, skillMst.value, skillMultipliersBlue.value, isDebug);
 		}
 		break;
 
 		case "skills":
 		{
 			const [skillMstEn, skillMstJp] = await Promise.allSettled([
-				loadJson(db.json_cache, datamineJsonUrl("EN/skill_mst_list")),
-				loadJson(db.json_cache, datamineJsonUrl("JP/skill_mst_list")),
+				loadJson(db.json, datamineJsonUrl("EN/skill_mst_list")),
+				loadJson(db.json, datamineJsonUrl("JP/skill_mst_list")),
 			]);
-			viewSkills(skillMstEn.value, skillMstJp.value, isDebug);
+			pageTitle = viewSkills(skillMstEn.value, skillMstJp.value, isDebug);
 		}
 		break;
 
 		case "weaponmap":
 		{
 			const results = await Promise.allSettled([
-				loadJson(db.json_cache, datamineJsonUrl("EN/skill_mst_list")),
-				loadJson(db.json_cache, datamineJsonUrl("JP/skill_mst_list")),
-				loadJson(db.json_cache, datamineJsonUrl("EN/card_mst_list_en")),
-				loadJson(db.json_cache, datamineJsonUrl("JP/card_mst_list")),
-				loadJson(db.json_cache, "https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec"),
-				loadJsonp(db.json_cache, "https://script.google.com/macros/s/AKfycby0_uQ6iu9tuWckhDA5Me_rbEMl_ukAbphjw1lYIXH73qBV7c6tg35926Z3SXhCXj0zZA/exec"),
+				loadJson(db.json, datamineJsonUrl("EN/skill_mst_list")),
+				loadJson(db.json, datamineJsonUrl("JP/skill_mst_list")),
+				loadJson(db.json, datamineJsonUrl("EN/card_mst_list_en")),
+				loadJson(db.json, datamineJsonUrl("JP/card_mst_list")),
+				loadJson(db.json, "https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec"),
+				loadJsonp(db.json, "https://script.google.com/macros/s/AKfycby0_uQ6iu9tuWckhDA5Me_rbEMl_ukAbphjw1lYIXH73qBV7c6tg35926Z3SXhCXj0zZA/exec"),
 			]);
 			const lists = {
 				skill_mst_list_en: results[0].value,
@@ -786,35 +799,29 @@ async function showCurrentView(db) {
 				skill_multipliers_blue: results[4].value,
 				weaponssearch_weapons: results[5].value,
 			};
-			viewWeaponmap(lists, isDebug);
+			pageTitle = viewWeaponmap(lists, isDebug);
 		}
 		break;
 
 		case "nightmares":
 		{
 			const [cardMst, artMst] = await Promise.allSettled([
-				loadJson(db.json_cache, datamineJsonUrl(`${version}/${cardMstListName}`)),
-				loadJson(db.json_cache, datamineJsonUrl(`${version}/art_mst_list`)),
+				loadJson(db.json, datamineJsonUrl(`${version}/${cardMstListName}`)),
+				loadJson(db.json, datamineJsonUrl(`${version}/art_mst_list`)),
 			]);
-			viewNightmares(cardMst.value, artMst.value, isDebug);
+			pageTitle = viewNightmares(cardMst.value, artMst.value, isDebug);
 		}
 		break;
 
+		default:
+		{
+			document.getElementById("content").innerHTML = "";
+			pageTitle = "Datamine viewer";
+		}
+		break;
 	}
+
+	return pageTitle;
 }
 
-window.addEventListener('load', function() {
-	showCurrentView(db);
-});
-
-// function onHashChange() {
-// 	let section = null;
-// 	if (location.hash.startsWith("#") && location.hash.length > 1)
-// 		section = document.getElementById(location.hash.slice(1));
-
-// 	if (!section)
-// 		section = document.getElementById("main");
-
-// 	showSection(section);
-// }
-// window.addEventListener('hashchange', onHashChange);
+setupViewRequestHandler(showView);
