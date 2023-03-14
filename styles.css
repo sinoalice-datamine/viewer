@@ -1,7 +1,3 @@
-body {
-	margin: 0px;
-}
-
 table {
 	border-collapse: collapse;
 	margin: 5px;
@@ -18,27 +14,6 @@ th, td {
 	padding-top: 2px;
 	padding-bottom: 2px;
 }
-
-/*@media screen and (min-width: 700px) {*/
-#menu {
-	position: sticky;
-	top: 0px;
-	left: 0px;
-	right: 0px;
-	height: 20px;
-	padding: 8px;
-	background-color: lightblue;
-}
-
-#content {
-	position: absolute;
-	top: 36px;
-	left: 0px;
-	right: 0px;
-	bottom: 0px;
-	overflow-y: auto;
-}
-/*}*/
 
 #content > table.fixedHeader > thead {
 	position: sticky;
