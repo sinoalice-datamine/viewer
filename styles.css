@@ -1,4 +1,4 @@
-table {
+/*table {
 	border-collapse: collapse;
 	margin: 5px;
 }
@@ -19,3 +19,19 @@ th, td {
 	position: sticky;
 	top: 0;
 }
+*/
+
+.clickable {
+	cursor: pointer;
+}
+thead.sticky-top > tr > th {
+	border-width: 0 1px;
+}
+thead.sticky-top > tr > th.clickable:hover {
+	background-color: var(--bs-gray-200);
+}
+
+/*th, td {
+	white-space: nowrap;
+}
+*/

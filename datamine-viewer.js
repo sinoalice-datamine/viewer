@@ -1,3 +1,5 @@
+const collator = new Intl.Collator('en');
+
 let db = {
 	json: new Map(),
 	index: {
@@ -43,11 +45,17 @@ function viewClasses(db, character_mst_list, character_ability_mst_list, isDebug
 
 	let unitSections = ""
 	for (const [k, v] of characters) {
-		unitSections += `<section id="${v.mst.characterMstId}"><h2>${v.mst.name}</h2>`;
+		unitSections += `<section id="${v.mst.characterMstId}">`;
+
+		unitSections += '<div class="row">';
+		unitSections += '<div class="col">';
+		unitSections += `<h2>${v.mst.name}</h2>`;
 		if (v.mst.displayStartTime) {
 			const date = new Date(v.mst.displayStartTime * 1000);
 			unitSections += `<p>Display start time: ${date.toISOString()}</p>`;
 		}
+		unitSections += '</div>';
+		unitSections += '</div>';
 
 		// 1: hp, 2: patk, 3: pdef, 4: matk, 5: mdef, 6: weapon, 7: cost
 		let stats = {
@@ -59,90 +67,119 @@ function viewClasses(db, character_mst_list, character_ability_mst_list, isDebug
 			arcana5: [0, 0, 0, 0, 0, 0, 0],
 		};
 
-		unitSections += '<table><thead><tr>';
-		if (isDebug) {
-			unitSections += '<th>id</th>';
-			unitSections += '<th>releaseLevel</th>';
-			unitSections += '<th>skillType_name</th>';
-			unitSections += '<th>name</th>';
-			unitSections += '<th>skillType</th>';
-			unitSections += '<th>effectType</th>';
-			unitSections += '<th>effectValue</th>';
-			unitSections += '<th>cardDetailType</th>';
-		} else {
-			unitSections += '<th>level</th>';
-			unitSections += '<th>type</th>';
-			unitSections += '<th>effect</th>';
-		}
-		unitSections += '</tr></thead><tbody>';
-		for (let i = 0; i < v.skills.length; i++) {
-			let skill = v.skills[i];
+		unitSections += '<div class="row">';
+
+		unitSections += '<div class="col">';
+		{
+			unitSections += '<table class="table table-striped table-bordered table-hover table-sm">';
+
+			unitSections += '<thead class="table-light">';
 			unitSections += '<tr>';
 			if (isDebug) {
-				unitSections += `<td>${skill.characterAbilityMstId}</td>`;
-			}
-			unitSections += `<td>${skill.releaseLevel}</td>`;
-			unitSections += `<td>${skillType_names[skill.skillType]}</td>`;
-			unitSections += `<td>${skill.name}</td>`;
-			if (isDebug) {
-				unitSections += `<td>${skill.skillType}</td>`;
-				unitSections += `<td>${skill.effectType}</td>`;
-				unitSections += `<td>${skill.effectValue}</td>`;
-				unitSections += `<td>${skill.cardDetailType}</td>`;
+				unitSections += '<th>id</th>';
+				unitSections += '<th>releaseLevel</th>';
+				unitSections += '<th>skillType_name</th>';
+				unitSections += '<th>name</th>';
+				unitSections += '<th>skillType</th>';
+				unitSections += '<th>effectType</th>';
+				unitSections += '<th>effectValue</th>';
+				unitSections += '<th>cardDetailType</th>';
+			} else {
+				unitSections += '<th>level</th>';
+				unitSections += '<th>type</th>';
+				unitSections += '<th>effect</th>';
 			}
 			unitSections += '</tr>';
-			if (skill.skillType == 1 || skill.skillType == 2) {
-				let unlock = null;
-				if (skill.releaseLevel <= 10) {
-					unlock = stats.base
-				} else if (skill.releaseLevel <= 12) {
-					unlock = stats.arcana1;
-				} else if (skill.releaseLevel <= 14) {
-					unlock = stats.arcana2;
-				} else if (skill.releaseLevel <= 16) {
-					unlock = stats.arcana3;
-				} else if (skill.releaseLevel <= 18) {
-					unlock = stats.arcana4;
-				} else {
-					unlock = stats.arcana5;
+			unitSections += '</thead>';
+
+			unitSections += '<tbody>';
+			for (let i = 0; i < v.skills.length; i++) {
+				let skill = v.skills[i];
+				unitSections += '<tr>';
+				if (isDebug) {
+					unitSections += `<td>${skill.characterAbilityMstId}</td>`;
 				}
-				unlock[skill.effectType - 1] += skill.effectValue;
-				totalStats[skill.effectType - 1] += skill.effectValue;
+				unitSections += `<td>${skill.releaseLevel}</td>`;
+				unitSections += `<td>${skillType_names[skill.skillType]}</td>`;
+				unitSections += `<td>${skill.name}</td>`;
+				if (isDebug) {
+					unitSections += `<td>${skill.skillType}</td>`;
+					unitSections += `<td>${skill.effectType}</td>`;
+					unitSections += `<td>${skill.effectValue}</td>`;
+					unitSections += `<td>${skill.cardDetailType}</td>`;
+				}
+				unitSections += '</tr>';
+				if (skill.skillType == 1 || skill.skillType == 2) {
+					let unlock = null;
+					if (skill.releaseLevel <= 10) {
+						unlock = stats.base
+					} else if (skill.releaseLevel <= 12) {
+						unlock = stats.arcana1;
+					} else if (skill.releaseLevel <= 14) {
+						unlock = stats.arcana2;
+					} else if (skill.releaseLevel <= 16) {
+						unlock = stats.arcana3;
+					} else if (skill.releaseLevel <= 18) {
+						unlock = stats.arcana4;
+					} else {
+						unlock = stats.arcana5;
+					}
+					unlock[skill.effectType - 1] += skill.effectValue;
+					totalStats[skill.effectType - 1] += skill.effectValue;
+				}
 			}
+			unitSections += '</tbody>';
+			unitSections += '</table>';
 		}
-		unitSections += '</tbody></table>';
+		unitSections += '</div>';
 
-		unitSections += '<table><thead><tr>';
-		unitSections += '<th>unlock</th>';
-		unitSections += '<th>HP</th>';
-		unitSections += '<th>patk</th>';
-		unitSections += '<th>pdef</th>';
-		unitSections += '<th>matk</th>';
-		unitSections += '<th>mdef</th>';
-		unitSections += '<th>cost</th>';
-		unitSections += '</tr></thead><tbody>';
+		unitSections += '<div class="col">';
+		{
+			unitSections += '<table class="table table-striped table-bordered table-hover table-sm">';
 
-		for (let k in stats) {
-			let unlock = stats[k];
+			unitSections += '<thead class="table-light">';
 			unitSections += '<tr>';
-			unitSections += `<td>${k}</td>`;
-			for (let i = 0; i < unlock.length; i++) {
-				if (i == 5) continue;
-				if (unlock[i] != 0) {
-					unitSections += `<td>${unlock[i]}</td>`;
-				} else {
-					unitSections += '<td></td>';
-				}
-			}
+			unitSections += '<th>unlock</th>';
+			unitSections += '<th>HP</th>';
+			unitSections += '<th>patk</th>';
+			unitSections += '<th>pdef</th>';
+			unitSections += '<th>matk</th>';
+			unitSections += '<th>mdef</th>';
+			unitSections += '<th>cost</th>';
 			unitSections += '</tr>';
+			unitSections += '</thead>';
+
+			unitSections += '<tbody>';
+			for (let k in stats) {
+				let unlock = stats[k];
+				unitSections += '<tr>';
+				unitSections += `<td>${k}</td>`;
+				for (let i = 0; i < unlock.length; i++) {
+					if (i == 5) continue;
+					if (unlock[i] != 0) {
+						unitSections += `<td>${unlock[i]}</td>`;
+					} else {
+						unitSections += '<td></td>';
+					}
+				}
+				unitSections += '</tr>';
+			}
+			unitSections += '</tbody>';
+
+			unitSections += '</table>';
 		}
-		unitSections += '</tbody></table>';
+		unitSections += '</div>';
+
+		unitSections += '</div>';
 
 		unitSections += '</section>';
 	}
 
 	let totalStatsSection = "";
-	totalStatsSection += '<section><h2>Total stats</h2><ul>';
+	totalStatsSection += '<div class="row">';
+	totalStatsSection += '<div class="col">';
+	totalStatsSection += '<h2>Total stats</h2>';
+	totalStatsSection += '<ul>';
 	totalStatsSection += `<li>Number of units: ${characters.size}</li>`;
 	totalStatsSection += `<li>HP: ${totalStats[0]}</li>`;
 	totalStatsSection += `<li>patk: ${totalStats[1]}</li>`;
@@ -150,9 +187,12 @@ function viewClasses(db, character_mst_list, character_ability_mst_list, isDebug
 	totalStatsSection += `<li>matk: ${totalStats[3]}</li>`;
 	totalStatsSection += `<li>mdef: ${totalStats[4]}</li>`;
 	totalStatsSection += `<li>cost: ${totalStats[6]}</li>`;
-	totalStatsSection += '</ul></section>';
+	totalStatsSection += '</ul>';
+	totalStatsSection += '</div>';
+	totalStatsSection += '</div>';
 
 	let content = document.getElementById("content");
+	content.className = "container";
 	content.innerHTML = heading + totalStatsSection + unitSections;
 
 	return "Datamine viewer - units";
@@ -263,7 +303,10 @@ function viewWeapons(version, db, card_mst_list, skill_mst_list, skill_multiplie
 	});
 
 	let html = "<h1>Weapons</h1>";
-	html += '<table class="fixedHeader"><thead><tr>';
+	html += '<table class="table table-bordered text-nowrap table-sm"><thead><tr>';
+
+	html += '<thead class="table-light sticky-top">';
+	html += '<tr>';
 	if (isDebug) {
 		html += '<th>cardMstId</th>';
 	}
@@ -297,8 +340,10 @@ function viewWeapons(version, db, card_mst_list, skill_mst_list, skill_multiplie
 		html += '<th>questSkillMstId</th>';
 		html += '<th>limitBreakSkillMstId</th>';
 	}
-	html += '</tr></thead><tbody>';
+	html += '</tr>';
+	html += '</thead>';
 
+	html += '<tbody>';
 	for (let c = 0; c < cardList.length; c++) {
 		let card = cardList[c];
 		for (let i = 0; i < card.variants.length; i++) {
@@ -398,9 +443,12 @@ function viewWeapons(version, db, card_mst_list, skill_mst_list, skill_multiplie
 			html += '</tr>';
 		}
 	}
-	html += '</tbody></table>';
+	html += '</tbody>';
+
+	html += '</table>';
 
 	let content = document.getElementById("content");
+	content.className = "container-fluid";
 	content.innerHTML = html;
 
 	return "Datamine viewer - weapons";
@@ -413,58 +461,76 @@ function viewNightmares(card_mst_list, art_mst_list, isDebug) {
 		art_mst_map[art.artMstId] = art;
 	}
 
-	let html = "<h1>Nightmares</h1>";
-	html += '<table class="fixedHeader"><thead><tr>';
-	if (isDebug) {
-		html += '<th>cardMstId</th>';
-	}
-	html += '<th>name</th>';
-	html += '<th>rarity</th>';
-	if (isDebug) {
-		html += '<th>questArtMstId</th>';
-	}
-	html += '<th>Story skill</th>';
-	if (isDebug) {
-		html += '<th>artMstId</th>';
-	}
-	html += '<th>Colosseum skill</th>';
-	html += '</tr></thead><tbody>';
-
-	for (let i = 0; i < card_mst_list.length; i++) {
-		let card = card_mst_list[i];
+	let nightmare_mst_list = [];
+	for (const card of card_mst_list) {
 		if (card.cardType != cardType_nightmare)
 			continue;
 
 		if (!isDebug && !card.isRelease)
 			continue;
 
-		html += '<tr>';
-
-		if (isDebug) {
-			html += `<td>${card.cardMstId}</td>`;
-		}
-
-		html += `<td>${card.name}</td>`;
-		html += `<td>${rarityMap[card.rarity]}</td>`;
-
-		let storySkill = art_mst_map[card.questArtMstId];
-		let coloSkill = art_mst_map[card.artMstId];
-
-		if (isDebug) {
-			html += `<td>${card.questArtMstId}</td>`;
-		}
-		html += `<td>${storySkill ? storySkill.name : "undef"}</td>`;
-		if (isDebug) {
-			html += `<td>${card.artMstId}</td>`;
-		}
-		html += `<td>${coloSkill ? coloSkill.name : "undef"}</td>`;
-
-		html += '</tr>';
+		nightmare_mst_list.push(card);
 	}
-	html += '</tbody></table>';
 
+	let table_columns = [];
+	if (isDebug) {
+		table_columns.push({
+			title: "cardMstId",
+			field: "cardMstId",
+			cmp: (l, r, col) => l.data.cardMstId - r.data.cardMstId,
+		});
+	}
+	table_columns.push({
+		title: "Name",
+		field: "name",
+		cmp: (l, r, col) => collator.compare(l.data.name, r.data.name),
+	});
+	table_columns.push({
+		title: "Rarity",
+		dataGenerator: (row) => rarityMap[row.rarity],
+		cmp: (l, r, col) => l.data.rarity - r.data.rarity,
+	});
+	if (isDebug) {
+		table_columns.push({
+			title: "questArtMstId",
+			field: "questArtMstId",
+			cmp: (l, r, col) => l.data.questArtMstId - r.data.questArtMstId,
+		});
+	}
+	table_columns.push({
+		title: "Story skill",
+		dataGenerator: (row) => {
+			const storySkill = art_mst_map[row.questArtMstId];
+			return storySkill ? storySkill.name : "undef";
+		},
+		cmp: (l, r, col) => collator.compare(l.dom.children[col].innerText, r.dom.children[col].innerText),
+	});
+	if (isDebug) {
+		table_columns.push({
+			title: "artMstId",
+			field: "artMstId",
+			cmp: (l, r, col) => l.data.artMstId - r.data.artMstId,
+		});
+	}
+	table_columns.push({
+		title: "Colosseum skill",
+		dataGenerator: (row) => {
+			const coloSkill = art_mst_map[row.artMstId];
+			return coloSkill ? coloSkill.name : "undef";
+		},
+		cmp: (l, r, col) => collator.compare(l.dom.children[col].innerText, r.dom.children[col].innerText),
+	});
+
+	const table = {
+		class: "table table-striped table-bordered table-hover table-sm",
+		theadClass: "table-light sticky-top",
+		data: nightmare_mst_list,
+		columns: table_columns,
+	};
 	let content = document.getElementById("content");
-	content.innerHTML = html;
+	content.className = "container-fluid";
+	content.innerHTML = "<h1>Nightmares</h1>";
+	content.appendChild(generateTable(table, {}));
 
 	return "Datamine viewer - nightmares";
 }
@@ -476,13 +542,19 @@ function viewSkills(skill_mst_list_en, skill_mst_list_jp, isDebug) {
 		skillMapJp.set(entry.skillMstId, entry);
 	}
 
-	let html = "<h1>Skills</h1>";
-	html += '<table class="fixedHeader"><thead><tr>';
+	let html = '';
+	html += '<h1>Skills</h1>';
+	html += '<table class="table table-bordered table-hover table-sm">';
+
+	html += '<thead class="table-light sticky-top">'
+	html += '<tr>';
 	html += '<th>skillMstId</th>';
 	html += '<th>name</th>';
 	html += '<th>description</th>';
-	html += '</tr></thead><tbody>';
+	html += '</tr>';
+	html += '</thead>';
 
+	html += '<tbody>';
 	for (let s = 0; s < skill_mst_list_en.length; s++) {
 		let skill = skill_mst_list_en[s];
 		let skill_jp = skillMapJp.get(skill.skillMstId);
@@ -504,9 +576,12 @@ function viewSkills(skill_mst_list_en, skill_mst_list_jp, isDebug) {
 			html += `</tr>`;
 		}
 	}
-	html += '</tbody></table>';
+	html += '</tbody>';
+
+	html += '</table>';
 
 	let content = document.getElementById("content");
+	content.className = "container";
 	content.innerHTML = html;
 
 	return "Datamine viewer - skills";
@@ -616,15 +691,21 @@ function viewWeaponmap(lists, isDebug) {
 		}
 	});
 
-	let html = "<h1>Skill map</h1>";
-	html += '<table class="fixedHeader"><thead><tr>';
+	let html = '';
+	html += '<h1>Skill map</h1>';
+	html += '<table class="table table-bordered table-hover table-sm">';
+
+	html += '<thead class="table-light sticky-top">';
+	html += '<tr>';
 	html += '<th>skillMstId</th>';
 	html += '<th>name</th>';
 	html += '<th>description</th>';
 	html += '<th>ws rates</th>';
 	html += '<th>blue rates</th>'
-	html += '</tr></thead><tbody>';
+	html += '</tr>';
+	html += '</thead>';
 
+	html += '<tbody>';
 	for (let i = 0; i < skillList.length; i++) {
 		let e = skillList[i];
 		let id       = e.en ? e.en.skillMstId : e.jp.skillMstId;
@@ -664,9 +745,12 @@ function viewWeaponmap(lists, isDebug) {
 		html += `<td>${jp_desc}</td>`;
 		html += `<tr>`;
 	}
-	html += '</tbody></table>';
+	html += '</tbody>';
+
+	html += '</table>';
 
 	let content = document.getElementById("content");
+	content.className = "container";
 	content.innerHTML = html;
 
 	return "Datamine viewer - skill map"
@@ -815,7 +899,9 @@ async function showView(searchText) {
 
 		default:
 		{
-			document.getElementById("content").innerHTML = "";
+			const content = document.getElementById("content");
+			content.className = "container";
+			content.innerHTML = "";
 			pageTitle = "Datamine viewer";
 		}
 		break;
