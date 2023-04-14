@@ -75,9 +75,59 @@ async function loadJsonp(cache, url) {
 //---------------
 // persistent navigation
 
-function setupViewRequestHandler(showViewCb) {
+function setupViewRequestHandler(showViewCb, menuInfo) {
 	async function showView(searchText, pushState) {
-		const viewTitle = await showViewCb(searchText);
+		const params = new URLSearchParams(searchText);
+		const primary = menuInfo.primary;
+		if (primary.default && !params.has(primary.key)) {
+			params.set(primary.key, primary.default);
+		}
+		const secondary = menuInfo.secondary;
+		if (secondary && secondary.default && !params.has(secondary.key)) {
+			params.set(secondary.key, secondary.default);
+		}
+
+		const viewTitle = await showViewCb(params);
+
+		{
+			const menuPrimary = document.getElementById('menu-primary');
+			const newParams = new URLSearchParams();
+			if (secondary && params.has(secondary.key)) {
+				newParams.set(secondary.key, params.get(secondary.key));
+			}
+			let currentValue = params.get(primary.key);
+			if (currentValue) {
+				currentValue = currentValue.toLowerCase();
+			}
+			for (let i = 0; i < menuPrimary.children.length; i++) {
+				const value = primary.values[i].value;
+				newParams.set(primary.key, value);
+				newParams.sort();
+				const navLink = menuPrimary.children[i];
+				navLink.setAttribute('href', `?${newParams.toString()}`);
+				navLink.className = (value == currentValue) ? 'nav-link active' : 'nav-link';
+			}
+		}
+
+		if (secondary) {
+			const menuSecondary = document.getElementById('menu-secondary');
+			const newParams = new URLSearchParams();
+			if (params.has(primary.key)) {
+				newParams.set(primary.key, params.get(primary.key));
+			}
+			let currentValue = params.get(secondary.key);
+			if (currentValue) {
+				currentValue = currentValue.toLowerCase();
+			}
+			for (let i = 0; i < menuSecondary.children.length; i++) {
+				const value = secondary.values[i].value;
+				newParams.set(secondary.key, value);
+				newParams.sort();
+				const navLink = menuSecondary.children[i];
+				navLink.setAttribute('href', `?${newParams.toString()}`);
+				navLink.className = (value == currentValue) ? 'nav-link active' : 'nav-link';
+			}
+		}
 
 		const content = document.getElementById('content');
 		const links = content.querySelectorAll('a');
@@ -99,6 +149,41 @@ function setupViewRequestHandler(showViewCb) {
 	}
 
 	function onDocumentLoad(event) {
+		{
+			let html = '';
+			html += '<div class="container-fluid flex-wrap">';
+
+			html += '<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar">';
+			html += '<span class="navbar-toggler-icon"></span>';
+			html += '</button>';
+
+			html += '<div class="collapse navbar-collapse" id="collapsibleNavbar">';
+			// primary menu
+			{
+				html += '<div id="menu-primary" class="navbar-nav flex-row flex-wrap">';
+				for (const value of menuInfo.primary.values) {
+					html += `<a class="nav-link" href="?">${value.displayText}</a>`;
+				}
+				html += '</div>';
+			}
+
+			// secondary menu
+			if (menuInfo.secondary) {
+				html += '<div id="menu-secondary" class="navbar-nav flex-row flex-wrap ms-auto">';
+				for (const value of menuInfo.secondary.values) {
+					html += `<a class="nav-link" href="?">${value.displayText}</a>`;
+				}
+				html += '</div>';
+			}
+
+			html += '</div>';
+
+			html += '</div>';
+
+			const menu = document.getElementById('menu');
+			menu.innerHTML = html;
+		}
+
 		{
 			const navs = document.getElementsByTagName('nav');
 			for (let i = 0; i < navs.length; i++) {

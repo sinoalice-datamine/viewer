@@ -192,7 +192,6 @@ function viewClasses(db, character_mst_list, character_ability_mst_list, isDebug
 	totalStatsSection += '</div>';
 
 	let content = document.getElementById("content");
-	content.className = "container";
 	content.innerHTML = heading + totalStatsSection + unitSections;
 
 	return "Datamine viewer - units";
@@ -294,15 +293,19 @@ function viewWeapons(version, db, card_mst_list, skill_mst_list, skill_multiplie
 		} else {
 			let skillA = skills[variantA.frontSkillMstId];
 			let skillB = skills[variantB.frontSkillMstId];
-			let nameOrder = skillA.name.localeCompare(skillB.name);
-			if (nameOrder != 0)
-				return nameOrder;
+			if (skillA && skillB)
+			{
+				let nameOrder = skillA.name.localeCompare(skillB.name);
+				if (nameOrder != 0)
+					return nameOrder;
+			}
 
 			return variantA.frontSkillMstId - variantB.frontSkillMstId;
 		}
 	});
 
 	let html = "<h1>Weapons</h1>";
+
 	html += '<table class="table table-bordered text-nowrap table-sm"><thead><tr>';
 
 	html += '<thead class="table-light sticky-top">';
@@ -433,7 +436,7 @@ function viewWeapons(version, db, card_mst_list, skill_mst_list, skill_multiplie
 				html += `<td>${getMultiplierText(frontSkill.mult, 'pdef')}</td>`;
 				html += `<td>${getMultiplierText(frontSkill.mult, 'mdef')}</td>`;
 			} else {
-				html += `<td colspan="9">undef</td>`;
+				html += `<td colspan="9">?undef?</td>`;
 			}
 
 			if (isDebug) {
@@ -448,7 +451,6 @@ function viewWeapons(version, db, card_mst_list, skill_mst_list, skill_multiplie
 	html += '</table>';
 
 	let content = document.getElementById("content");
-	content.className = "container-fluid";
 	content.innerHTML = html;
 
 	return "Datamine viewer - weapons";
@@ -528,7 +530,6 @@ function viewNightmares(card_mst_list, art_mst_list, isDebug) {
 		columns: table_columns,
 	};
 	let content = document.getElementById("content");
-	content.className = "container-fluid";
 	content.innerHTML = "<h1>Nightmares</h1>";
 	content.appendChild(generateTable(table, {}));
 
@@ -544,7 +545,7 @@ function viewSkills(skill_mst_list_en, skill_mst_list_jp, isDebug) {
 
 	let html = '';
 	html += '<h1>Skills</h1>';
-	html += '<table class="table table-bordered table-hover table-sm">';
+	html += '<table class="table table-bordered table-sm">';
 
 	html += '<thead class="table-light sticky-top">'
 	html += '<tr>';
@@ -581,7 +582,6 @@ function viewSkills(skill_mst_list_en, skill_mst_list_jp, isDebug) {
 	html += '</table>';
 
 	let content = document.getElementById("content");
-	content.className = "container";
 	content.innerHTML = html;
 
 	return "Datamine viewer - skills";
@@ -693,7 +693,7 @@ function viewWeaponmap(lists, isDebug) {
 
 	let html = '';
 	html += '<h1>Skill map</h1>';
-	html += '<table class="table table-bordered table-hover table-sm">';
+	html += '<table class="table table-bordered table-sm">';
 
 	html += '<thead class="table-light sticky-top">';
 	html += '<tr>';
@@ -750,7 +750,6 @@ function viewWeaponmap(lists, isDebug) {
 	html += '</table>';
 
 	let content = document.getElementById("content");
-	content.className = "container";
 	content.innerHTML = html;
 
 	return "Datamine viewer - skill map"
@@ -815,8 +814,7 @@ function datamineJsonUrl(path) {
 	return `https://raw.githubusercontent.com/sinoalice-datamine/data/master/${path}.json`;
 }
 
-async function showView(searchText) {
-	let params = new URLSearchParams(searchText);
+async function showView(params) {
 	let isDebug = params.has("debug");
 	let version = sanitizeVersion(params.get("version"));
 	let cardMstListName = "card_mst_list";
@@ -900,7 +898,6 @@ async function showView(searchText) {
 		default:
 		{
 			const content = document.getElementById("content");
-			content.className = "container";
 			content.innerHTML = "";
 			pageTitle = "Datamine viewer";
 		}
@@ -910,4 +907,23 @@ async function showView(searchText) {
 	return pageTitle;
 }
 
-setupViewRequestHandler(showView);
+setupViewRequestHandler(showView, {
+	primary: {
+		key: "view",
+		values: [
+			{ value: "classes", displayText: "Units (character/class)" },
+			{ value: "weapons", displayText: "Weapons" },
+			{ value: "skills", displayText: "Skills" },
+			{ value: "weaponmap", displayText: "Weapon map" },
+			{ value: "nightmares", displayText: "Nightmares" },
+		]
+	},
+	secondary: {
+		key: "version",
+		default: "en",
+		values: [
+			{ value: "en", displayText: "EN" },
+			{ value: "jp", displayText: "JP" },
+		]
+	}
+});

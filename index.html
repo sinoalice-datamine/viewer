@@ -12,43 +12,11 @@
 </head>
 <body class="d-flex flex-column vh-100">
 
-<nav class="navbar navbar-expand-md bg-dark navbar-dark" id="menu">
-	<div class="container-fluid">
-		<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar">
-			<span class="navbar-toggler-icon"></span>
-		</button>
-		<div class="collapse navbar-collapse" id="collapsibleNavbar">
-			<ul class="navbar-nav">
-				<li class="nav-item dropdown">
-					<a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Units (character/class)</a>
-					<ul class="dropdown-menu">
-						<li><a class="dropdown-item" href="?version=EN&view=classes">EN</a></li>
-						<li><a class="dropdown-item" href="?version=JP&view=classes">JP</a></li>
-					</ul>
-				</li>
-				<li class="nav-item dropdown">
-					<a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Weapons</a>
-					<ul class="dropdown-menu">
-						<li><a class="dropdown-item" href="?version=EN&view=weapons">EN</a></li>
-						<li><a class="dropdown-item" href="?version=JP&view=weapons">JP</a></li>
-					</ul>
-				</li>
-
-				<li class="nav-item"><a class="nav-link" href="?view=skills">Skills</a></li>
-				<li class="nav-item"><a class="nav-link" href="?view=weaponmap">Weapon map</a></li>
-				<li class="nav-item dropdown">
-					<a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Nightmares</a>
-					<ul class="dropdown-menu">
-						<li><a class="dropdown-item" href="?version=EN&view=nightmares">EN</a></li>
-						<li><a class="dropdown-item" href="?version=JP&view=nightmares">JP</a></li>
-					</ul>
-				</li>
-			</ul>
-		</div>
-	</div>
+<nav id="menu" class="navbar navbar-expand-md bg-dark navbar-dark">
 </nav>
 
-<div class="container-fluid" id="content" class="flex-fill overflow-auto"></div>
+<div id="content" class="flex-fill overflow-auto">
+</div>
 
 <script src="utils.js"></script>
 <script src="table.js"></script>
