@@ -31,6 +31,10 @@ thead.sticky-top > tr > th.clickable:hover {
 	background-color: var(--bs-gray-200);
 }
 
+td.maxed-val {
+	background-color: #D1E7DD;
+}
+
 /*th, td {
 	white-space: nowrap;
 }

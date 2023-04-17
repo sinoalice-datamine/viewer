@@ -1,7 +1,7 @@
 "use strict";
 
 class Table {
-	#tableModel;
+	tableModel;
 
 	#dialogColumnIdx;
 
@@ -14,7 +14,7 @@ class Table {
 	#bsModal;
 
 	constructor(tableModel, dialogIdPrefix, viewInit) {
-		this.#tableModel = tableModel;
+		this.tableModel = tableModel;
 		this.#dialogColumnIdx = 0;
 
 		this.domTable          = document.createElement('table');
@@ -44,6 +44,33 @@ class Table {
 		html += '</tr></thead>';
 
 		html += '<tbody>';
+		html += this.#generateBodyHtml();
+		html += '</tbody>';
+
+		this.domTable.innerHTML = html;
+
+		const thead = this.domTable.children[0];
+		const theadRow = thead.children[0];
+		for (let i = 0; i < tableModel.columns.length; i++) {
+			if (tableModel.columns[i].cmp) {
+				const th = theadRow.children[i];
+				th.addEventListener('click', (e) => this.#onColumnHeadClick(e, i, tableModel));
+				// Will switch between `bi-filter` and `bi-funnel-fill`
+				th.className = 'clickable bi bi-filter'; // See https://icons.getbootstrap.com/
+			}
+		}
+
+		this.#applySort(viewInit.sortColumn, viewInit.sortDirection);
+	}
+
+	refreshBody() {
+		const tbody = this.domTable.children[1];
+		tbody.innerHTML = this.#generateBodyHtml();
+	}
+
+	#generateBodyHtml() {
+		const tableModel = this.tableModel;
+		let html = '';
 		const rowCount = tableModel.data.length;
 		for (let i = 0; i < rowCount; i++) {
 			const rowData = tableModel.data[i];
@@ -75,27 +102,12 @@ class Table {
 			}
 			html += '</tr>';
 		}
-		html += '</tbody>';
-
-		this.domTable.innerHTML = html;
-
-		const thead = this.domTable.children[0];
-		const theadRow = thead.children[0];
-		for (let i = 0; i < tableModel.columns.length; i++) {
-			if (tableModel.columns[i].cmp) {
-				const th = theadRow.children[i];
-				th.addEventListener('click', (e) => this.#onColumnHeadClick(e, i, tableModel));
-				// Will switch between `bi-filter` and `bi-funnel-fill`
-				th.className = 'clickable bi bi-filter'; // See https://icons.getbootstrap.com/
-			}
-		}
-
-		this.#applySort(viewInit.sortColumn, viewInit.sortDirection);
+		return html;
 	}
 
 	#onColumnHeadClick(event, columnIdx) {
 		const modalTitle = this.#domFilterRoot.querySelector('.modal-title');
-		modalTitle.textContent = `Column '${this.#tableModel.columns[columnIdx].title}'`;
+		modalTitle.textContent = `Column '${this.tableModel.columns[columnIdx].title}'`;
 		this.#dialogColumnIdx = columnIdx;
 		this.#bsModal.show();
 	}
@@ -116,7 +128,7 @@ class Table {
 		if (typeof sortDirection !== 'number')
 			return;
 
-		const table = this.#tableModel;
+		const table = this.tableModel;
 		const tbody = this.domTable.children[1];
 		const rows = new Array(tbody.children.length);
 		for (let i = 0; i < rows.length; i++) {
