@@ -36,14 +36,14 @@ const attribute_water = 2;
 const attribute_wind = 3;
 
 const cardDetailTypeWeapon_strings = [
-	"instrument",
-	"tome",
-	"artifact",
-	"staff",
-	"sword",
-	"hammer",
-	"projectile",
-	"polearm",
+	"Instrument",
+	"Tome",
+	"Artifact",
+	"Staff",
+	"Sword",
+	"Hammer",
+	"Projectile",
+	"Polearm",
 ];
 
 const attribute_strings = [
@@ -252,6 +252,14 @@ function getMultiplierText(mult, multName) {
 	return res;
 }
 
+async function cleanUpCardsMst(cardMstListRaw_promise) {
+	const cardMstList = await cardMstListRaw_promise;
+	for (const cardMst of cardMstList) {
+		cardMst.name = cardMst.name.trim();
+	}
+	return cardMstList;
+}
+
 async function indexCardsByUniqueId(index, cardMstList_promise) {
 	let cardsByUniqueId = index.cardsByUniqueId;
 	if (cardsByUniqueId)
@@ -259,21 +267,20 @@ async function indexCardsByUniqueId(index, cardMstList_promise) {
 
 	cardsByUniqueId = {};
 	const cardMstList = await cardMstList_promise;
-	for (const card_mst of cardMstList) {
-		card_mst.name = card_mst.name.trim();
-		if (!card_mst.isRelease) {
+	for (const cardMst of cardMstList) {
+		if (!cardMst.isRelease) {
 			continue;
 		}
-		let card = cardsByUniqueId[card_mst.cardUniqueId];
+		let card = cardsByUniqueId[cardMst.cardUniqueId];
 		if (!card) {
 			card = {
-				uniqueId: card_mst.cardUniqueId,
-				name: card_mst.name,
+				uniqueId: cardMst.cardUniqueId,
+				name: cardMst.name,
 				variants: [],
 			};
-			cardsByUniqueId[card_mst.cardUniqueId] = card;
+			cardsByUniqueId[cardMst.cardUniqueId] = card;
 		}
-		card.variants.push(card_mst);
+		card.variants.push(cardMst);
 	}
 
 	for (const cardUniqueId in cardsByUniqueId) {
@@ -290,16 +297,37 @@ async function indexCardsByUniqueId(index, cardMstList_promise) {
 	return cardsByUniqueId;
 }
 
-async function indexCardsByName(index, cardsByUniqueId_promise) {
+async function indexCardsByName(index, cardsMstList_promise) {
 	let cardsByName = index.cardsByName;
 	if (cardsByName)
 		return cardsByName;
 
 	cardsByName = {};
-	const cardsByUniqueId = await cardsByUniqueId_promise;
-	for (const cardUniqueId in cardsByUniqueId) {
-		const card = cardsByUniqueId[cardUniqueId];
-		cardsByName[card.name] = card;
+	const cardsMstList = await cardsMstList_promise;
+	for (const cardMst of cardsMstList) {
+		if (!cardMst.isRelease) {
+			continue;
+		}
+		cardMst.name = cardMst.name.trim();
+		let card = cardsByName[cardMst.name];
+		if (!card) {
+			card = {
+				name: cardMst.name,
+				variants: [],
+			};
+			cardsByName[cardMst.name] = card;
+		}
+		card.variants.push(cardMst);
+	}
+
+	for (const cardName in cardsByName) {
+		const card = cardsByName[cardName];
+		card.variants.sort(function(a, b) {
+			if (a.evolutionLevel != b.evolutionLevel)
+				return a.evolutionLevel - b.evolutionLevel;
+
+			return a.cardMstId - b.cardMstId;
+		});
 	}
 
 	index.cardsByName = cardsByName;
@@ -390,6 +418,8 @@ function viewWeapons(version, db, cardsByUniqueId, skillsById, isDebug) {
 	}
 	html += '<th>name</th>';
 	html += '<th>rarity</th>';
+	html += '<th>type</th>';
+	html += '<th>element</th>';
 	if (isDebug) {
 		html += '<th>isRelease</th>';
 		html += '<th>roleType</th>';
@@ -444,6 +474,9 @@ function viewWeapons(version, db, cardsByUniqueId, skillsById, isDebug) {
 				html += ` (${variant.evolutionLevel}/${weapon.variants.length - 1})`;
 			}
 			html += `</td>`
+
+			html += `<td>${cardDetailTypeWeapon_strings[variant.cardDetailType - 1]}</td>`;
+			html += `<td>${attribute_strings[variant.attribute - 1]}</td>`;
 
 			if (isDebug) {
 				html += `<td>${variant.isRelease}</td>`;
@@ -830,9 +863,15 @@ function viewWeaponmap(lists, isDebug) {
 	return "Datamine viewer - skill map"
 }
 
-function viewLibrary(cardsByName_promise, skillsById_promise) {
+function viewLibrary(cardsByName_promise, cardsByUniqueId_promise, skillsById_promise) {
 	function calcGridIndependentInfo(item, skillsById) {
+		if (!item.card) {
+			console.log(`${item.name}`);
+		}
 		item.variantMax = item.card.variants[item.card.variants.length - 1];
+		if (!item.variant) {
+			console.log(`${item.name}`);
+		}
 		item.coloMainSkill = skillsById[item.variant.frontSkillMstId];
 		item.coloMainSkillMax = skillsById[item.variantMax.frontSkillMstId];
 		item.coloAidSkill = skillsById[item.variant.autoSkillMstId];
@@ -867,13 +906,15 @@ function viewLibrary(cardsByName_promise, skillsById_promise) {
 			return;
 
 		const reader = new FileReader();
-		const [libraryText_res, cardsByName_res, skillsById_res] = await Promise.allSettled([
+		const [libraryText_res, cardsByName_res, cardsByUniqueId_res, skillsById_res] = await Promise.allSettled([
 			readAsText(reader, file),
 			cardsByName_promise,
+			cardsByUniqueId_promise,
 			skillsById_promise,
 		]);
 		const libraryText = libraryText_res.value;
 		const cardsByName = cardsByName_res.value;
+		const cardsByUniqueId = cardsByUniqueId_res.value;
 		const skillsById = skillsById_res.value;
 
 		const libraryItems = libraryTable.tableModel.data;
@@ -899,9 +940,13 @@ function viewLibrary(cardsByName_promise, skillsById_promise) {
 			if (item.evoLevel)
 				item.evoLevel = item.evoLevel|0;
 
-			item.card = cardsByName[item.name];
-			if (item.card) {
-				for (const variant of item.card.variants) {
+			if (item.name == "Maul of Carnage") {
+				let dummy = 0;
+			}
+
+			const cardByName = cardsByName[item.name];
+			if (cardByName) {
+				for (const variant of cardByName.variants) {
 					let isMatch = variant.rarity == item.rarity;
 					if (isMatch) {
 						isMatch = variant.name == item.name;
@@ -916,6 +961,7 @@ function viewLibrary(cardsByName_promise, skillsById_promise) {
 					}
 					if (isMatch) {
 						item.variant = variant;
+						item.card = cardsByUniqueId[item.variant.cardUniqueId];
 						break;
 					}
 				}
@@ -1178,16 +1224,17 @@ async function showView(params) {
 
 		case "library":
 		{
-			const cardMstList_promise = loadJson(db.json, datamineJsonUrl(`${version}/${cardMstListName}`));
+			const cardMstListRaw_promise = loadJson(db.json, datamineJsonUrl(`${version}/${cardMstListName}`));
+			const cardMstList_promise = cleanUpCardsMst(cardMstListRaw_promise);
 			const cardsByUniqueId_promise = indexCardsByUniqueId(db.index[version], cardMstList_promise);
-			const cardsByName_promise = indexCardsByName(db.index[version], cardsByUniqueId_promise);
+			const cardsByName_promise = indexCardsByName(db.index[version], cardMstList_promise);
 			const skillMstList_promise = loadJson(db.json, datamineJsonUrl(`${version}/skill_mst_list`));
 			const skillMultipliersBlue_promise = loadJson(db.json, "https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec");
 			const skillsById_promise = indexSkillsById(
 				db.index[version], version, skillMstList_promise, skillMultipliersBlue_promise
 			);
 
-			pageTitle = viewLibrary(cardsByName_promise, skillsById_promise);
+			pageTitle = viewLibrary(cardsByName_promise, cardsByUniqueId_promise, skillsById_promise);
 		}
 		break;
 
