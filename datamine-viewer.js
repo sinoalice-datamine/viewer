@@ -260,7 +260,7 @@ async function cleanUpCardsMst(cardMstListRaw_promise) {
 	return cardMstList;
 }
 
-async function indexCardsByUniqueId(index, cardMstList_promise) {
+async function indexCardsByUniqueId(index, cardMstList_promise, lbGachaCardList_promise) {
 	let cardsByUniqueId = index.cardsByUniqueId;
 	if (cardsByUniqueId)
 		return cardsByUniqueId;
@@ -283,6 +283,12 @@ async function indexCardsByUniqueId(index, cardMstList_promise) {
 		card.variants.push(cardMst);
 	}
 
+	const lbGachaCardList = await lbGachaCardList_promise;
+	for (const lbGachaCard of lbGachaCardList) {
+		const card = cardsByUniqueId[lbGachaCard.cardUniqueId];
+		card.isInLbGacha = lbGachaCard.isPickup;
+	}
+
 	for (const cardUniqueId in cardsByUniqueId) {
 		const card = cardsByUniqueId[cardUniqueId];
 		card.variants.sort(function(a, b) {
@@ -291,6 +297,8 @@ async function indexCardsByUniqueId(index, cardMstList_promise) {
 
 			return a.cardMstId - b.cardMstId;
 		});
+		if (card.variants[0].rarity < 5)
+			card.isInLbGacha = false;
 	}
 
 	index.cardsByUniqueId = cardsByUniqueId;
@@ -1018,6 +1026,17 @@ function viewLibrary(cardsByName_promise, cardsByUniqueId_promise, skillsById_pr
 				cmp: (l,r,col) => l.data.limitBreaks - r.data.limitBreaks,
 			},
 			{
+				title: "In LB gacha",
+				dataGenerator: (row) => (typeof(row.card.isInLbGacha) !== 'undefined') ? row.card.isInLbGacha : "",
+				cmp: (l,r,col) => {
+					const lval = l.data.card.isInLbGacha;
+					const rval = r.data.card.isInLbGacha;
+					const lsort = (lval === true) ? 1 : (lval === false) ? 0 : -1;
+					const rsort = (rval === true) ? 1 : (rval === false) ? 0 : -1;
+					return lsort - rsort;
+				}
+			},
+			{
 				title: "Level",
 				field: "level",
 				cmp: (l,r,col) => l.data.level - r.data.level,
@@ -1225,8 +1244,9 @@ async function showView(params) {
 		case "library":
 		{
 			const cardMstListRaw_promise = loadJson(db.json, datamineJsonUrl(`${version}/${cardMstListName}`));
+			const lbGachaCardList_promise = loadJson(db.json, "/cache/lb_gacha_card_list.json");
 			const cardMstList_promise = cleanUpCardsMst(cardMstListRaw_promise);
-			const cardsByUniqueId_promise = indexCardsByUniqueId(db.index[version], cardMstList_promise);
+			const cardsByUniqueId_promise = indexCardsByUniqueId(db.index[version], cardMstList_promise, lbGachaCardList_promise);
 			const cardsByName_promise = indexCardsByName(db.index[version], cardMstList_promise);
 			const skillMstList_promise = loadJson(db.json, datamineJsonUrl(`${version}/skill_mst_list`));
 			const skillMultipliersBlue_promise = loadJson(db.json, "https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec");
