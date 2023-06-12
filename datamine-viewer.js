@@ -1244,7 +1244,7 @@ async function showView(params) {
 		case "library":
 		{
 			const cardMstListRaw_promise = loadJson(db.json, datamineJsonUrl(`${version}/${cardMstListName}`));
-			const lbGachaCardList_promise = loadJson(db.json, "/cache/lb_gacha_card_list.json");
+			const lbGachaCardList_promise = loadJson(db.json, "cache/lb_gacha_card_list.json");
 			const cardMstList_promise = cleanUpCardsMst(cardMstListRaw_promise);
 			const cardsByUniqueId_promise = indexCardsByUniqueId(db.index[version], cardMstList_promise, lbGachaCardList_promise);
 			const cardsByName_promise = indexCardsByName(db.index[version], cardMstList_promise);
