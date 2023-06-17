@@ -652,11 +652,26 @@ function viewNightmares(card_mst_list, art_mst_list, isDebug) {
 	return "Datamine viewer - nightmares";
 }
 
-function viewSkills(skill_mst_list_en, skill_mst_list_jp, isDebug) {
-	let skillMapJp = new Map();
-	for (let i = 0; i < skill_mst_list_jp.length; i++) {
-		let entry = skill_mst_list_jp[i];
-		skillMapJp.set(entry.skillMstId, entry);
+function viewSkills(skill_mst_list_en, skill_mst_list_jp, parsed_skill_mst_list, isDebug) {
+	let skillMap = {};
+	for (const skill of skill_mst_list_en) {
+		skillMap[skill.skillMstId] = { en: skill, jp: null, parsed: null };
+	}
+	for (const skill of skill_mst_list_jp) {
+		let entry = skillMap[skill.skillMstId];
+		if (!entry) {
+			entry = {en: null, jp: null, parsed: null };
+			skillMap[skill.skillMstId] = entry;
+		}
+		entry.jp = skill;
+	}
+	for (const skill of parsed_skill_mst_list) {
+		let entry = skillMap[skill.skillMstId];
+		if (!entry) {
+			entry = {en: null, jp: null, parsed: null };
+			skillMap[skill.skillMstId] = entry;
+		}
+		entry.parsed = skill;
 	}
 
 	let html = '';
@@ -668,28 +683,402 @@ function viewSkills(skill_mst_list_en, skill_mst_list_jp, isDebug) {
 	html += '<th>skillMstId</th>';
 	html += '<th>name</th>';
 	html += '<th>description</th>';
+	html += '<th>properties</th>';
+	if (isDebug) {
+		html += '<th>unknown properties</th>';
+	}
 	html += '</tr>';
 	html += '</thead>';
 
 	html += '<tbody>';
-	for (let s = 0; s < skill_mst_list_en.length; s++) {
-		let skill = skill_mst_list_en[s];
-		let skill_jp = skillMapJp.get(skill.skillMstId);
-
+	for (const k in skillMap) {
+		const v = skillMap[k];
 		html += `<tr>`;
-		if (skill_jp) {
-			html += `<td rowspan="2">${skill.skillMstId}</td>`;
+		let rowspan = "";
+		if (v.jp && v.en) {
+			rowspan = ' rowspan="2"';
+			html += `<td${rowspan}>${v.en.skillMstId}</td>`;
+			html += `<td>${v.en.name}</td>`;
+			html += `<td>${v.en.description}</td>`;
+		} else if (v.jp) {
+			html += `<td>${v.jp.skillMstId}</td>`;
+			html += `<td>${v.jp.name}</td>`;
+			html += `<td>${v.jp.description}</td>`;
+		} else if (v.en) {
+			html += `<td>${v.en.skillMstId}</td>`;
+			html += `<td>${v.en.name}</td>`;
+			html += `<td>${v.en.description}</td>`;
 		} else {
-			html += `<td>${skill.skillMstId}</td>`;
+			html += '<td></td>';
+			html += '<td></td>';
+			html += '<td></td>';
 		}
-		html += `<td>${skill.name}</td>`;
-		html += `<td>${skill.description}</td>`;
+
+		if (v.parsed) {
+			function clone(obj) {
+				let res = {};
+				for (const k in obj) {
+					res[k] = obj[k];
+				}
+				return res;
+			}
+			function dumpUnknowns(prefix, obj, unknown) {
+				for (const k in obj) {
+					unknown.push(`${prefix}${k}:${obj[k]}`);
+				}
+			}
+			function getSupportDir(p, unknown) {
+				// support_direction:1 up (buff)
+				// support_direction:2 down (debuff)
+				switch(p.support_direction) {
+					case undefined: break;
+					case 1: break;
+					case 2: break;
+					default: unknown.push(`support_direction:${p.support_direction}`); break;
+				}
+				const SUPPORT_DIR = ['buff', 'debuff'];
+				const supportDir = SUPPORT_DIR[p.support_direction - 1];
+				delete p.support_direction;
+				return supportDir;
+			}
+			function addTags_Tier(p, known, unknown) {
+				const TIERS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+				const tierStr = TIERS[p.skill_name_tier - 1];
+				if (tierStr) {
+					known.push(tierStr);
+					delete p.skill_name_tier;
+				}
+			}
+			function addTags_Target(p, known, unknown) {
+				let targets = clone(p.targets);
+				delete p.targets;
+				switch(targets.type) {
+					case 1: known.push('enemy'); break;
+					case 2: known.push('ally'); break;
+					default: unknown.push(`targets.type:${targets.type}`); break;
+				}
+				delete targets.type;
+
+				if (targets.min == targets.max)
+					known.push(`${targets.min}T`);
+				else
+					known.push(`${targets.min}-${targets.max}T`);
+				delete targets.min;
+				delete targets.max;
+
+				dumpUnknowns('targets.', targets, unknown);
+			}
+			function addTags_EffectSize(stat, p, known, unknown, supportDir) {
+				switch(p[`${stat}_effect_size`]) {
+					case undefined: break;
+					case 1: known.push(`slight-${stat}-${supportDir}`); break;
+					case 2: known.push(`normal-${stat}-${supportDir}`); break;
+					case 3: known.push(`great-${stat}-${supportDir}`); break;
+					case 4: known.push(`massive-${stat}-${supportDir}`); break;
+					case 5: known.push(`超特大-${stat}-${supportDir}`); break;
+					default: unknown.push(`${stat}_effect_size:${p[`${stat}_effect_size`]}`); break;
+				}
+				delete p[`${stat}_effect_size`];
+			}
+			function addTags_DisadvantageBoost(p, known, unknown) {
+				switch(p.disadvantage_boost) {
+					case undefined: break;
+					case true: known.push('disadvantage-boost'); break;
+					case 1.3: known.push('disadvantage+130%'); break;
+					case 1.5: known.push('disadvantage+150%'); break;
+					case 1.6: known.push('disadvantage+160%'); break;
+					default: unknown.push(`disadvantage_boost:${p.disadvantage_boost}`); break;
+				}
+				delete p.disadvantage_boost;
+			}
+
+			let p = clone(v.parsed);
+			let known = [];
+			let unknown = [];
+			delete p.skillMstId;
+			switch(p.skill_type)
+			{
+				case 1:
+				{
+					known.push('main');
+					addTags_Tier(p, known, unknown);
+					addTags_Target(p, known, unknown);
+					switch(p.primary_effect) {
+						case 1:
+							known.push('damage');
+
+							switch(p.damage_effect_size) {
+								case undefined: break;
+								case 1: known.push('slight-damage'); break;
+								case 2: known.push('normal-damage'); break;
+								case 3: known.push('great-damage'); break;
+								case 4: known.push('massive-damage'); break;
+								case 5: known.push('enormous-damage'); break;
+								case 6: known.push('colossal-damage'); break;
+								case 7: known.push('絶大-damage'); break;
+								default: unknown.push(`damage_effect_size:${p.damage_effect_size}`); break;
+							}
+							delete p.damage_effect_size;
+
+							switch(p.damage_type)
+							{
+								case undefined: break;
+								case 1: known.push('P.DMG'); break;
+								case 2: known.push('M.DMG'); break;
+								default: unknown.push(`damage_type:${p.damage_type}`); break;
+							}
+							delete p.damage_type;
+
+							switch(p.combo) {
+								case undefined: break;
+								case -15: known.push('combo-15'); break;
+								case 5: known.push('combo+5'); break;
+								case 10: known.push('combo+10'); break;
+								case 15: known.push('combo+15'); break;
+								case 30: known.push('combo+30'); break;
+								case 66: known.push('combo+66'); break;
+								default: unknown.push(`combo:${p.combo}`); break;
+							}
+							delete p.combo;
+
+							break;
+						case 2:
+							known.push('heal');
+							break;
+						case 3:
+							known.push('de/buff');
+							break;
+						default:
+							unknown.push(`primary_effect:${p.primary_effect}`);
+							break;
+					}
+					delete p.primary_effect;
+
+					switch(p.heal_effect_size) {
+						case undefined: break;
+						case 1: known.push('slight-heal'); break;
+						case 2: known.push('normal-heal'); break;
+						case 3: known.push('great-heal'); break;
+						case 4: known.push('massive-heal'); break;
+						default: unknown.push(`heal_effect_size:${p.heal_effect_size}`); break;
+					}
+					delete p.heal_effect_size;
+
+					const supportDir = getSupportDir(p, unknown);
+					addTags_EffectSize('patk', p, known, unknown, supportDir);
+					addTags_EffectSize('matk', p, known, unknown, supportDir);
+					addTags_EffectSize('pdef', p, known, unknown, supportDir);
+					addTags_EffectSize('mdef', p, known, unknown, supportDir);
+
+					addTags_DisadvantageBoost(p, known, unknown);
+
+					if (p.disadvantage_targets) {
+						let dt = clone(p.disadvantage_targets);
+						delete p.disadvantage_targets;
+						if (dt.min == dt.max)
+							known.push(`disadvantage ${dt.min}T`);
+						else
+							known.push(`disadvantage ${dt.min}-${dt.max}T`);
+						delete dt.min;
+						delete dt.max;
+						dumpUnknowns('disadvantage_targets.', dt, unknown);
+					}
+
+					switch(p.grid_attribute_boost) {
+						case undefined: break;
+						case 1: known.push('boost-via-fire'); break;
+						case 2: known.push('boost-via-water'); break;
+						case 3: known.push('boost-via-wind'); break;
+						default: unknown.push(`grid_attribute_boost:${p.grid_attribute_boost}`); break;
+					}
+					delete p.grid_attribute_boost;
+
+					switch(p.low_sp_boost_effect_size) {
+						case undefined: break;
+						case 2: known.push('normal-boost-on-low-sp'); break;
+						case 3: known.push('great-boost-on-low-sp'); break;
+						default: unknown.push(`low_sp_boost_effect_size:${p.low_sp_boost_effect_size}`); break;
+					}
+					delete p.low_sp_boost_effect_size;
+				}
+				break;
+
+				case 2:
+				{
+					known.push('copy');
+					addTags_Tier(p, known, unknown);
+				}
+				break;
+
+				case 3:
+				{
+					known.push('colo support');
+					addTags_Tier(p, known, unknown);
+					const supportDir = getSupportDir(p, unknown);
+					addTags_EffectSize('patk', p, known, unknown, supportDir);
+					addTags_EffectSize('matk', p, known, unknown, supportDir);
+					addTags_EffectSize('pdef', p, known, unknown, supportDir);
+					addTags_EffectSize('mdef', p, known, unknown, supportDir);
+
+					switch(p.trigger) {
+						case 1: known.push('proc-on-attack'); break;
+						case 2: known.push('proc-on-heal'); break;
+						case 3: known.push('proc-on-support'); break;
+						case 4: known.push('proc-on-command'); break;
+						case 5: known.push('proc-on-skill-use'); break;
+						case 23:
+							known.push('proc-on-heal');
+							known.push('proc-on-support');
+							break;
+						default: unknown.push(`trigger:${p.trigger}`); break;
+					}
+					delete p.trigger;
+
+					switch(p.activation_rate) {
+						case 1: known.push('proc-rate-normal'); break;
+						case 1.5: known.push('proc-rate-redux'); break;
+						case 2: known.push('proc-rate-apex'); break;
+						default: unknown.push(`activation_rate:${p.activation_rate}`); break;
+					}
+					delete p.activation_rate;
+
+					switch(p.damage_support_effect_size) {
+						case undefined: break;
+						case 1: known.push('slight-damage-boost'); break;
+						case 2: known.push('normal-damage-boost'); break;
+						case 3: known.push('great-damage-boost'); break;
+						case 4: known.push('massive-damage-boost'); break;
+						case 5: known.push('enormous-damage-boost'); break;
+						default: unknown.push(`damage_support_effect_size:${p.damage_support_effect_size}`); break;
+					}
+					delete p.damage_support_effect_size;
+
+					switch(p.heal_support_effect_size) {
+						case undefined: break;
+						case 1: known.push('slight-heal-boost'); break;
+						case 2: known.push('normal-heal-boost'); break;
+						case 3: known.push('great-heal-boost'); break;
+						case 4: known.push('massive-heal-boost'); break;
+						case 5: known.push('enormous-heal-boost'); break;
+						default: unknown.push(`heal_support_effect_size:${p.heal_support_effect_size}`); break;
+					}
+					delete p.heal_support_effect_size;
+
+					switch(p.buff_support_effect_size) {
+						case undefined: break;
+						case 1: known.push('slight-support-boost'); break;
+						case 2: known.push('normal-support-boost'); break;
+						case 3: known.push('great-support-boost'); break;
+						case 4: known.push('massive-support-boost'); break;
+						case 5: known.push('enormous-support-boost'); break;
+						default: unknown.push(`buff_support_effect_size:${p.buff_support_effect_size}`); break;
+					}
+					delete p.buff_support_effect_size;
+
+					switch(p.sp_reduction_support_effect_size) {
+						case undefined: break;
+						case 1: known.push('slight-sp-reduce'); break;
+						case 2: known.push('normal-sp-reduce'); break;
+						case 3: known.push('great-sp-reduce'); break;
+						default: unknown.push(`sp_reduction_support_effect_size:${p.sp_reduction_support_effect_size}`); break;
+					}
+					delete p.sp_reduction_support_effect_size;
+
+					switch(p.lifeforce_support_effect_size) {
+						case undefined: break;
+						case 1: known.push('slight-lf-boost'); break;
+						case 2: known.push('normal-lf-boost'); break;
+						case 3: known.push('great-lf-boost'); break;
+						default: unknown.push(`lifeforce_support_effect_size:${p.lifeforce_support_effect_size}`); break;
+					}
+					delete p.lifeforce_support_effect_size;
+
+					switch(p.grid_weapon_type_boost) {
+						case undefined: break;
+						case 1: known.push('boost-via-instrument'); break;
+						case 2: known.push('boost-via-tome'); break;
+						case 3: known.push('boost-via-artifact'); break;
+						case 4: known.push('boost-via-staff'); break;
+						case 5: known.push('boost-via-sword'); break;
+						case 6: known.push('boost-via-hammer'); break;
+						case 7: known.push('boost-via-projectile'); break;
+						case 8: known.push('boost-via-polearm'); break;
+						default: unknown.push(`grid_weapon_type_boost:${p.grid_weapon_type_boost}`); break;
+					}
+					delete p.grid_weapon_type_boost;
+
+					switch(p.extra_targets_support_effect) {
+						case undefined: break;
+						case 1: known.push('boost-targets+1'); break;
+						default: unknown.push(`extra_targets_support_effect:${p.extra_targets_support_effect}`); break;
+					}
+					delete p.extra_targets_support_effect;
+
+					addTags_DisadvantageBoost(p, known, unknown);
+
+				}
+				break;
+
+				case 4:
+				{
+					known.push('class support');
+					addTags_Tier(p, known, unknown);
+				}
+				break;
+
+				case 5:
+				{
+					known.push('armor set bonus');
+					addTags_Tier(p, known, unknown);
+				}
+				break;
+
+				// case 9: break;
+				// case 99: break;
+				default:
+					addTags_Tier(p, known, unknown);
+					break;
+			}
+			delete p.skill_type;
+
+			// TODO
+			delete p.alternative_atk_stat_fraction;
+			delete p.colo_time_boost;
+			delete p.effect;
+			delete p.enemy_attribute_boost;
+			delete p.enemy_kind_boost;
+			delete p.nightmare_effect;
+			delete p.sp_recovery;
+			delete p.target_low_hp_boost;
+			delete p.when;
+			delete p.works_on_dead_targets;
+
+			delete p.full_blow;
+
+			dumpUnknowns('', p, unknown);
+
+			if (isDebug) {
+				for (const val of unknown)
+					console.log(val);
+			}
+
+			html += `<td${rowspan}>${known.join(', ')}</td>`;
+			if (isDebug) {
+				html += `<td${rowspan}>${unknown.join(', ')}</td>`;
+			}
+		} else {
+			html += `<td${rowspan}></td>`;
+			if (isDebug) {
+				html += `<td${rowspan}></td>`;
+			}
+		}
+
 		html += `</tr>`;
 
-		if (skill_jp) {
+		if (v.en && v.jp) {
 			html += `<tr>`;
-			html += `<td>${skill_jp.name}</td>`;
-			html += `<td>${skill_jp.description}</td>`;
+			html += `<td>${v.jp.name}</td>`;
+			html += `<td>${v.jp.description}</td>`;
 			html += `</tr>`;
 		}
 	}
@@ -1201,11 +1590,12 @@ async function showView(params) {
 
 		case "skills":
 		{
-			const [skillMstEn, skillMstJp] = await Promise.allSettled([
+			const [skillMstEn, skillMstJp, parsedSkillMst] = await Promise.allSettled([
 				loadJson(db.json, datamineJsonUrl("EN/skill_mst_list")),
 				loadJson(db.json, datamineJsonUrl("JP/skill_mst_list")),
+				loadJson(db.json, datamineJsonUrl("parsed_skill_mst_list")),
 			]);
-			pageTitle = viewSkills(skillMstEn.value, skillMstJp.value, isDebug);
+			pageTitle = viewSkills(skillMstEn.value, skillMstJp.value, parsedSkillMst.value, isDebug);
 		}
 		break;
 
