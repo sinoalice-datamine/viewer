@@ -1294,6 +1294,25 @@ function viewLibrary(cardsByName_promise, cardsByUniqueId_promise, skillsById_pr
 		item.isMaxColoMainSLevel = item.coloMainSLevel == maxSLevel;
 		item.isMaxColoAidSLevel = item.coloAidSLevel == maxSLevel;
 
+		const slevelScaleDamage = 1 + ((item.coloMainSLevel - 1 + Math.floor(item.coloMainSLevel / 20)) * 0.025);
+		const slevelScaleDamageMax = 1 + ((maxSLevel - 1 + Math.floor(maxSLevel / 20)) * 0.025);
+
+		if (item.coloMainSkill.mult) {
+			item.mulDamageRaw = item.coloMainSkill.mult.base.damage;
+			item.mulDamageSlevel = item.mulDamageRaw * slevelScaleDamage;
+			if (item.coloMainSkill.mult.alt) {
+				item.mulDamageRawAlt = item.coloMainSkill.mult.alt.damage;
+				item.mulDamageSlevelAlt = item.mulDamageRawAlt * slevelScaleDamage;
+			}
+		}
+		if (item.coloMainSkillMax.mult) {
+			item.mulDamageRawMax = item.coloMainSkillMax.mult.base.damage;
+			item.mulDamageSlevelMax = item.mulDamageRawMax * slevelScaleDamageMax;
+			if (item.coloMainSkillMax.mult.alt) {
+				item.mulDamageRawAltMax = item.coloMainSkillMax.mult.alt.damage;
+				item.mulDamageSlevelAltMax = item.mulDamageRawAltMax * slevelScaleDamageMax;
+			}
+		}
 	}
 	function dataGenerator_Targets(targets) {
 		if (!targets)
@@ -1312,6 +1331,23 @@ function viewLibrary(cardsByName_promise, cardsByUniqueId_promise, skillsById_pr
 		if (lTargets.min != rTargets.min)
 			return lTargets.min - rTargets.min;
 		return lTargets.max - rTargets.max
+	}
+	function dataGenerator_Mult(base, alt) {
+		let res = '';
+		if (base) {
+			res += base.toFixed(3);
+		}
+		if (alt) {
+			res += `(${alt.toFixed(3)})`;
+		}
+		return res;
+	}
+	function cmp_Mult(lMult, lMultAlt, rMult, rMultAlt) {
+		if (!lMult) lMult = 0;
+		if (!rMult) rMult = 0;
+		if (lMultAlt && lMultAlt > lMult) lMult = lMultAlt;
+		if (rMultAlt && rMultAlt > rMult) rMult = rMultAlt;
+		return lMult - rMult;
 	}
 
 	async function readAsText(reader, file) {
@@ -1493,6 +1529,22 @@ function viewLibrary(cardsByName_promise, cardsByUniqueId_promise, skillsById_pr
 				cmp: (l,r,col) => cmp_Targets(
 					l.data.coloMainSkillMax.parsed.targets,
 					r.data.coloMainSkillMax.parsed.targets
+				),
+			},
+			{
+				title: "Damage mult",
+				dataGenerator: (row) => dataGenerator_Mult(row.mulDamageSlevel, row.mulDamageSlevelAlt),
+				cmp: (l,r,col) => cmp_Mult(
+					l.data.mulDamageSlevel, l.data.mulDamageSlevelAlt,
+					r.data.mulDamageSlevel, r.data.mulDamageSlevelAlt
+				),
+			},
+			{
+				title: "Damage mult (max)",
+				dataGenerator: (row) => dataGenerator_Mult(row.mulDamageSlevelMax, row.mulDamageSlevelAltMax),
+				cmp: (l,r,col) => cmp_Mult(
+					l.data.mulDamageSlevelMax, l.data.mulDamageSlevelAltMax,
+					r.data.mulDamageSlevelMax, r.data.mulDamageSlevelAltMax
 				),
 			},
 			{
