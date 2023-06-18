@@ -286,7 +286,8 @@ async function indexCardsByUniqueId(index, cardMstList_promise, lbGachaCardList_
 	const lbGachaCardList = await lbGachaCardList_promise;
 	for (const lbGachaCard of lbGachaCardList) {
 		const card = cardsByUniqueId[lbGachaCard.cardUniqueId];
-		card.isInLbGacha = lbGachaCard.isPickup;
+		if (card)
+			card.isInLbGacha = lbGachaCard.isPickup;
 	}
 
 	for (const cardUniqueId in cardsByUniqueId) {
@@ -342,7 +343,7 @@ async function indexCardsByName(index, cardsMstList_promise) {
 	return cardsByName;
 }
 
-async function indexSkillsById(index, version, skillMstList_promise, skillMultipliersBlue_promise) {
+async function indexSkillsById(index, version, skillMstList_promise, skillMultipliersBlue_promise, parsedSkillMstList_promise) {
 	let skillsById = index.skillsById;
 	if (skillsById)
 		return skillsById;
@@ -351,6 +352,13 @@ async function indexSkillsById(index, version, skillMstList_promise, skillMultip
 	const skillMstList = await skillMstList_promise;
 	for (const skill of skillMstList) {
 		skillsById[skill.skillMstId] = skill;
+	}
+
+	const parsedSkillMstList = await parsedSkillMstList_promise;
+	for (const parsed of parsedSkillMstList) {
+		const skill = skillsById[parsed.skillMstId];
+		if (skill)
+			skill.parsed = parsed;
 	}
 
 	const skillMultipliersBlue = await skillMultipliersBlue_promise;
@@ -1287,6 +1295,24 @@ function viewLibrary(cardsByName_promise, cardsByUniqueId_promise, skillsById_pr
 		item.isMaxColoAidSLevel = item.coloAidSLevel == maxSLevel;
 
 	}
+	function dataGenerator_Targets(targets) {
+		if (!targets)
+			return "";
+		return (targets.min == targets.max) ? `${targets.min}T` : `${targets.min}-${targets.max}T`;
+	}
+	function cmp_Targets(lTargets, rTargets) {
+		if (!lTargets)
+			return -1;
+		if (!rTargets)
+			return 1;
+		const lAvgTargets = (lTargets.min + lTargets.max) * 0.5;
+		const rAvgTargets = (rTargets.min + rTargets.max) * 0.5;
+		if (lAvgTargets != rAvgTargets)
+			return lAvgTargets - rAvgTargets;
+		if (lTargets.min != rTargets.min)
+			return lTargets.min - rTargets.min;
+		return lTargets.max - rTargets.max
+	}
 
 	async function readAsText(reader, file) {
 		return new Promise(function(resolve, reject) {
@@ -1454,6 +1480,22 @@ function viewLibrary(cardsByName_promise, cardsByUniqueId_promise, skillsById_pr
 				cmp: (l,r,col) => l.data.variant.attribute - r.data.variant.attribute,
 			},
 			{
+				title: "Targets",
+				dataGenerator: (row) => dataGenerator_Targets(row.coloMainSkill.parsed.targets),
+				cmp: (l,r,col) => cmp_Targets(
+					l.data.coloMainSkill.parsed.targets,
+					r.data.coloMainSkill.parsed.targets
+				),
+			},
+			{
+				title: "Targets (max)",
+				dataGenerator: (row) => dataGenerator_Targets(row.coloMainSkillMax.parsed.targets),
+				cmp: (l,r,col) => cmp_Targets(
+					l.data.coloMainSkillMax.parsed.targets,
+					r.data.coloMainSkillMax.parsed.targets
+				),
+			},
+			{
 				title: "Skill",
 				dataGenerator: (row) => row.coloMainSkill.name,
 				cmp: (l,r,col) => collator.compare(l.data.coloMainSkill.name, r.data.coloMainSkill.name),
@@ -1569,12 +1611,15 @@ async function showView(params) {
 		case "weapons":
 		{
 			const cardMstList_promise = loadJson(db.json, datamineJsonUrl(`${version}/${cardMstListName}`));
-			const cardsByUniqueId_promise = indexCardsByUniqueId(db.index[version], cardMstList_promise);
+			const parsedSkillMstList_promise = loadJson(db.json, datamineJsonUrl("parsed_skill_mst_list"));
+			const lbGachaCardList_promise = loadJson(db.json, "cache/lb_gacha_card_list.json");
+			const cardsByUniqueId_promise = indexCardsByUniqueId(db.index[version], cardMstList_promise, lbGachaCardList_promise);
 
 			const skillMstList_promise = loadJson(db.json, datamineJsonUrl(`${version}/skill_mst_list`));
 			const skillMultipliersBlue_promise = loadJson(db.json, "https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec");
 			const skillsById_promise = indexSkillsById(
-				db.index[version], version, skillMstList_promise, skillMultipliersBlue_promise
+				db.index[version], version, skillMstList_promise, skillMultipliersBlue_promise,
+				parsedSkillMstList_promise
 			);
 
 			// JP skill multipliers (origin of values in Blue's sheets):
@@ -1635,13 +1680,15 @@ async function showView(params) {
 		{
 			const cardMstListRaw_promise = loadJson(db.json, datamineJsonUrl(`${version}/${cardMstListName}`));
 			const lbGachaCardList_promise = loadJson(db.json, "cache/lb_gacha_card_list.json");
+			const parsedSkillMstList_promise = loadJson(db.json, datamineJsonUrl("parsed_skill_mst_list"));
+			const skillMstList_promise = loadJson(db.json, datamineJsonUrl(`${version}/skill_mst_list`));
+			const skillMultipliersBlue_promise = loadJson(db.json, "https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec");
 			const cardMstList_promise = cleanUpCardsMst(cardMstListRaw_promise);
 			const cardsByUniqueId_promise = indexCardsByUniqueId(db.index[version], cardMstList_promise, lbGachaCardList_promise);
 			const cardsByName_promise = indexCardsByName(db.index[version], cardMstList_promise);
-			const skillMstList_promise = loadJson(db.json, datamineJsonUrl(`${version}/skill_mst_list`));
-			const skillMultipliersBlue_promise = loadJson(db.json, "https://script.google.com/macros/s/AKfycbz9EJA6OVAidLavVaP1GhDaTYaj-4hPE0K7YCbwaZZBrcG6SVKabKqTAsEkSrArTI8/exec");
 			const skillsById_promise = indexSkillsById(
-				db.index[version], version, skillMstList_promise, skillMultipliersBlue_promise
+				db.index[version], version, skillMstList_promise, skillMultipliersBlue_promise,
+				parsedSkillMstList_promise
 			);
 
 			pageTitle = viewLibrary(cardsByName_promise, cardsByUniqueId_promise, skillsById_promise);
