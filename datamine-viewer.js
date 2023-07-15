@@ -1349,6 +1349,20 @@ function viewLibrary(cardsByName_promise, cardsByUniqueId_promise, skillsById_pr
 		if (rMultAlt && rMultAlt > rMult) rMult = rMultAlt;
 		return lMult - rMult;
 	}
+	function dataGeneratorCurrentMax(textCur, textMax, useNewline) {
+		let result = textCur;
+		if (textCur != textMax) {
+			result += " →";
+			result += useNewline ? "<br>" : " ";
+			result += textMax;
+		}
+		return result;
+	}
+	function cmpCurrentMax(cmpCur, cmpMax) {
+		if (cmpMax != 0)
+			return cmpMax;
+		return cmpCur;
+	}
 
 	async function readAsText(reader, file) {
 		return new Promise(function(resolve, reject) {
@@ -1453,14 +1467,14 @@ function viewLibrary(cardsByName_promise, cardsByUniqueId_promise, skillsById_pr
 			},
 			{
 				title: "Rarity",
-				dataGenerator: (row) => rarityMap[row.rarity],
-				cmp: (l,r,col) => collator.compare(l.data.rarity, r.data.rarity),
+				dataGenerator: (row) => dataGeneratorCurrentMax(
+					rarityMap[row.rarity], rarityMap[row.variantMax.rarity], false
+				),
+				cmp: (l,r,col) => cmpCurrentMax(
+					collator.compare(l.data.rarity, r.data.rarity),
+					collator.compare(l.data.variantMax.rarity, r.data.variantMax.rarity),
+				),
 				classGenerator: (row) => (row.rarity == row.variantMax.rarity) ? "maxed-val" : null,
-			},
-			{
-				title: "Rarity (max)",
-				dataGenerator: (row) => rarityMap[row.variantMax.rarity],
-				cmp: (l,r,col) => collator.compare(l.data.variantMax.rarity, r.data.variantMax.rarity),
 			},
 			{
 				title: "Evo",
@@ -1517,55 +1531,63 @@ function viewLibrary(cardsByName_promise, cardsByUniqueId_promise, skillsById_pr
 			},
 			{
 				title: "Targets",
-				dataGenerator: (row) => dataGenerator_Targets(row.coloMainSkill.parsed.targets),
-				cmp: (l,r,col) => cmp_Targets(
-					l.data.coloMainSkill.parsed.targets,
-					r.data.coloMainSkill.parsed.targets
+				dataGenerator: (row) => dataGeneratorCurrentMax(
+					dataGenerator_Targets(row.coloMainSkill.parsed.targets),
+					dataGenerator_Targets(row.coloMainSkillMax.parsed.targets),
+					false
 				),
-			},
-			{
-				title: "Targets (max)",
-				dataGenerator: (row) => dataGenerator_Targets(row.coloMainSkillMax.parsed.targets),
-				cmp: (l,r,col) => cmp_Targets(
-					l.data.coloMainSkillMax.parsed.targets,
-					r.data.coloMainSkillMax.parsed.targets
+				cmp: (l,r,col) => cmpCurrentMax(
+					cmp_Targets(
+						l.data.coloMainSkill.parsed.targets,
+						r.data.coloMainSkill.parsed.targets
+					),
+					cmp_Targets(
+						l.data.coloMainSkillMax.parsed.targets,
+						r.data.coloMainSkillMax.parsed.targets
+					)
 				),
 			},
 			{
 				title: "Damage mult",
-				dataGenerator: (row) => dataGenerator_Mult(row.mulDamageSlevel, row.mulDamageSlevelAlt),
-				cmp: (l,r,col) => cmp_Mult(
-					l.data.mulDamageSlevel, l.data.mulDamageSlevelAlt,
-					r.data.mulDamageSlevel, r.data.mulDamageSlevelAlt
+				dataGenerator: (row) => dataGeneratorCurrentMax(
+					dataGenerator_Mult(row.mulDamageSlevel, row.mulDamageSlevelAlt),
+					dataGenerator_Mult(row.mulDamageSlevelMax, row.mulDamageSlevelAltMax),
+					false
 				),
-			},
-			{
-				title: "Damage mult (max)",
-				dataGenerator: (row) => dataGenerator_Mult(row.mulDamageSlevelMax, row.mulDamageSlevelAltMax),
-				cmp: (l,r,col) => cmp_Mult(
-					l.data.mulDamageSlevelMax, l.data.mulDamageSlevelAltMax,
-					r.data.mulDamageSlevelMax, r.data.mulDamageSlevelAltMax
-				),
+				cmp: (l,r,col) => cmpCurrentMax(
+					cmp_Mult(
+						l.data.mulDamageSlevel, l.data.mulDamageSlevelAlt,
+						r.data.mulDamageSlevel, r.data.mulDamageSlevelAlt
+					),
+					cmp_Mult(
+						l.data.mulDamageSlevelMax, l.data.mulDamageSlevelAltMax,
+						r.data.mulDamageSlevelMax, r.data.mulDamageSlevelAltMax
+					)
+				)
 			},
 			{
 				title: "Skill",
-				dataGenerator: (row) => row.coloMainSkill.name,
-				cmp: (l,r,col) => collator.compare(l.data.coloMainSkill.name, r.data.coloMainSkill.name),
-			},
-			{
-				title: "Skill (max)",
-				dataGenerator: (row) => row.coloMainSkillMax.name,
-				cmp: (l,r,col) => collator.compare(l.data.coloMainSkillMax.name, r.data.coloMainSkillMax.name),
+				dataGenerator: (row) => dataGeneratorCurrentMax(
+					row.coloMainSkill.name, row.coloMainSkillMax.name, true
+				),
+				cmp: (l,r,col) => cmpCurrentMax(
+					collator.compare(l.data.coloMainSkill.name, r.data.coloMainSkill.name),
+					collator.compare(l.data.coloMainSkillMax.name, r.data.coloMainSkillMax.name)
+				)
 			},
 			{
 				title: "Support skill",
-				dataGenerator: (row) => row.coloAidSkill.name,
-				cmp: (l,r,col) => collator.compare(l.data.coloAidSkill.name, r.data.coloAidSkill.name),
-			},
-			{
-				title: "Support skill (max)",
-				dataGenerator: (row) => row.coloAidSkillMax.name,
-				cmp: (l,r,col) => collator.compare(l.data.coloAidSkillMax.name, r.data.coloAidSkillMax.name),
+				dataGenerator: (row) => dataGeneratorCurrentMax(
+					row.coloAidSkill.name, row.coloAidSkillMax.name, true
+				),
+				cmp: (l,r,col) => {
+					const cmpAidSkillMax = collator.compare(l.data.coloAidSkillMax.name, r.data.coloAidSkillMax.name);
+					if (cmpAidSkillMax != 0)
+						return cmpAidSkillMax;
+
+					const cmpAidSkill = collator.compare(l.data.coloAidSkill.name, r.data.coloAidSkill.name);
+					return cmpAidSkill;
+				},
 			},
 		],
 		data: [],
